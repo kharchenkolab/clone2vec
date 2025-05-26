@@ -48,6 +48,7 @@ and after launch the tool from the command line:
    :maxdepth: 2
    :hidden:
 
+   basics
    tutorial
    api
 
