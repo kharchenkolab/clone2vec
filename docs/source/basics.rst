@@ -78,4 +78,4 @@ the clone(s) on the right side (gene expression UMAP).
    :width: 800
    :align: center
 
-An example of clones2cells application can be found for the `Erickson, Isaev, et al. dataset <https://clones2cells.streamlit.app>`.
+An example of clones2cells application can be found for the `Erickson, Isaev, et al. dataset <https://clones2cells.streamlit.app>`_. For gene expression analysis, you can use CellxGene web-browser (`tutorial <https://cellxgene.cziscience.com/docs/04__Analyze%20Public%20Data/4_1__Hosted%20Tutorials>`_, also exists for the `Erickson, Isaev, et al. dataset <https://adameykolab.hifo.meduniwien.ac.at/cellxgene_public/filecrawl/2024_Erickson_Isaev>`_).
