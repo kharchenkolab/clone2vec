@@ -425,60 +425,65 @@ def clonal_nn(
     None or AnnData
         Updates `adata` in place unless `copy=True`, in which case a new AnnData object is returned.
     """
-    from scipy.sparse import csr_matrix
+    from scipy.sparse import csr_matrix, coo_matrix
     import pynndescent
     
-    # Removing clones with small size
+    adata_to_update = adata.copy() if copy else adata
+
+    # 1. Preprocessing (vectorized)
     clonal_obs = adata.obs[obs_name].copy()
     clones_counts = clonal_obs.value_counts()
     small_clones = clones_counts[clones_counts < min_size].index
-    clonal_obs = pd.Series([
-        clone if clone not in small_clones else non_clonal_str for clone in clonal_obs
-    ]).astype(str).astype("category")
 
-    var_mapping = dict(zip(
-        clonal_obs.cat.categories[clonal_obs.cat.categories != non_clonal_str],
-        range(len(clonal_obs.cat.categories[clonal_obs.cat.categories != non_clonal_str])),
-    ))
-    
-    train = adata[clonal_obs != non_clonal_str].obsm[use_rep]
-    obs_col = clonal_obs[clonal_obs != non_clonal_str].astype(str)
-    obs_col.index = range(len(obs_col))
-    test = adata.obsm[use_rep]
-    index = pynndescent.NNDescent(train, random_state=random_state, **kwargs)
+    clonal_obs[clonal_obs.isin(small_clones)] = non_clonal_str
+    clonal_obs = clonal_obs.astype("category")
+
+    # 2. Prepare data for kNN
+    valid_clones = clonal_obs.cat.categories[clonal_obs.cat.categories != non_clonal_str]
+    n_clones = len(valid_clones)
+    clone_to_int = pd.Series(np.arange(n_clones), index=valid_clones)
+
+    is_clonal = (clonal_obs != non_clonal_str).to_numpy()
+    train_data = adata.obsm[use_rep][is_clonal]
+
+    if train_data.shape[0] == 0:
+        adata_to_update.obsm[obsm_name] = csr_matrix((adata.shape[0], n_clones))
+        adata_to_update.uns[obsm_name + "_names"] = valid_clones.to_list()
+        return adata_to_update if copy else None
+
+    # 3. Build and query the kNN index
+    index = pynndescent.NNDescent(train_data, random_state=random_state, **kwargs)
     index.prepare()
-    neighbors = index.query(test, k=k)[0]
     
-    col_ind = []
-    row_ind = []
-    data = []
+    test_data = adata.obsm[use_rep]
+    neighbors_indices, _ = index.query(test_data, k=k)
 
-    for i in (tqdm(range(len(neighbors))) if tqdm_bar else range(len(neighbors))):
-        nn = obs_col[neighbors[i]].value_counts()
-        nn = nn[nn > 0]
-        col_ind += [var_mapping[var] for var in nn.index]
-        row_ind += [i] * len(nn)
-        data += list(nn.values)
+    # 4. Vectorized aggregation to build the sparse matrix
+    train_labels = clonal_obs[is_clonal]
+    train_labels_encoded = clone_to_int[train_labels].to_numpy()
+
+    neighbor_labels_encoded = train_labels_encoded[neighbors_indices]
+
+    n_test = test_data.shape[0]
+    row_ind = np.repeat(np.arange(n_test), k)
+    col_ind = neighbor_labels_encoded.flatten()
+    data = np.ones(n_test * k, dtype=np.float32)
+
+    bag_of_clones_matrix = coo_matrix(
+        (data, (row_ind, col_ind)), shape=(n_test, n_clones)
+    ).tocsr()
+
+    # 5. Update the AnnData object
+    adata_to_update.obsm[obsm_name] = bag_of_clones_matrix
+    adata_to_update.uns[f"{obsm_name}_names"] = valid_clones.to_list()
 
     if copy:
-        adata = adata.copy()
-
-    adata.obsm[obsm_name] = csr_matrix((data, (row_ind, col_ind)))
-    adata.uns[obsm_name + "_names"] = list(var_mapping.keys())
-
-    adata_clonal = sc.AnnData(
-        X=csr_matrix((data, (row_ind, col_ind))),
-        obs=pd.DataFrame(index=adata.obs_names),
-        var=pd.DataFrame(index=list(var_mapping.keys())),
-    )
-    
-    if copy:
-        return adata
+        return adata_to_update
 
 
 def clone2vec(
     adata: AnnData,
-    obs_name: str,
+    obs_name: str = "clone",
     z_dim: int = 10,
     n_epochs: int = 100,
     batch_size: int = 64,
@@ -489,6 +494,8 @@ def clone2vec(
     obsm_key: str = "clone2vec",
     uns_key: str = "clone2vec_mean_loss",
     random_state: None | int = 4,
+    early_stopping_patience: int = 5,
+    early_stopping_min_delta: float = 1e-4,
 ) -> AnnData:
     """
     Learn a clonal embedding using a SkipGram model and return the resulting clone embeddings.
@@ -575,6 +582,9 @@ def clone2vec(
     criterion = nn.NLLLoss()
 
     epochs_mean_loss = []
+    best_loss = np.inf
+    patience_counter = 0
+
     for epoch in (tqdm(range(n_epochs)) if tqdm_bar else range(n_epochs)):
         losses = []
         for batch_idx, data in enumerate(train_loader):
@@ -591,13 +601,30 @@ def clone2vec(
             optimizer.step()
             
             losses.append(loss.item())
-        epochs_mean_loss.append(np.mean(losses))
+
+        current_loss = np.mean(losses)
+        epochs_mean_loss.append(current_loss)
+        
+        if current_loss < best_loss - early_stopping_min_delta:
+            best_loss = current_loss
+            patience_counter = 0
+        else:
+            patience_counter += 1
+
+        if patience_counter >= early_stopping_patience:
+            if tqdm_bar:
+                print(f"\nEarly stopping triggered at epoch {epoch + 1}.")
+            break
 
     clone2vec = model.embedding.weight.data.cpu().numpy()
+    if not (fill_ct is None) and not (fill_ct in adata.obs.columns):
+        print(f"{fill_ct} isn't in the `adata.obs.columns`. Keeping `clones.X` empty.")
+        fill_ct = None
+
     if not (fill_ct is None):
         cell_counts = adata_only_clones.obs.groupby(
             [fill_ct, obs_name]
-        ).size().unstack()[adata_only_clones.uns[f"{obsm_name}_names"]]
+        ).size().unstack(fill_value=0)[adata_only_clones.uns[f"{obsm_name}_names"]]
         
         var_names = list(cell_counts.index)
         obs_names = list(cell_counts.columns)
