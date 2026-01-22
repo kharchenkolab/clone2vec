@@ -19,6 +19,10 @@ aims to predict neighbour cells clonal labellings by clonal label of cells. As a
 similar context in gene expression space will have similar weights in this neural network, and these weights
 will be used as embedding for further analysis.
 
+## Benchmarking illustrations
+
+See [Technical Note](https://github.com/kharchenkolab/scLiTr/blob/main/docs/Technical_note.pdf) for more details.
+
 ## Installation
 
 scLiTr might be installed via `pip` (takes 1-2 minutes on Google Colab):
@@ -52,3 +56,4 @@ An example with the dataset from [Weinreb et al., 2020](https://www.science.org/
 
 For interactive exploration of clonal and gene expression embeddings together we recommend using
 our simple tool [clones2cells](https://github.com/serjisa/clones2cells_app).
+
