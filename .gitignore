@@ -69,4 +69,3 @@ config.local.ini
 # --- Docs Build Artifacts ---
 docs/build/
 docs/source/API/
-docs/_build/

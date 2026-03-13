@@ -3,6 +3,7 @@ nbsphinx
 ipywidgets
 numpydoc
 scanpydoc
+sphinx-book-theme
 sphinx-autodoc-typehints
 tqdm
 numpy

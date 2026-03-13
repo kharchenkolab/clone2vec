@@ -22,6 +22,8 @@ sys.modules["sl.tl"] = sl.tools
 sys.modules["sl.pl"] = sl.plotting
 sys.modules["sl.pp"] = sl.preprocessing
 sys.modules["sl.utils"] = sl.utils
+sys.modules["sl.seurat"] = sl.seurat
+sys.modules["sl.datasets"] = sl.datasets
 
 needs_sphinx = "2.0"
 
