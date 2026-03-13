@@ -3,7 +3,7 @@ from __future__ import annotations
 from scanpy import read, AnnData
 from pathlib import Path
 
-Zenodo_record = "15334396"
+zenodo_record_lt = "15334396"
 
 def Weinreb_in_vitro(
     file_path: str | Path = "data/Weinreb_in_vitro.h5ad",
@@ -21,7 +21,7 @@ def Weinreb_in_vitro(
     AnnData
         Annotated data matrix with the dataset.
     """
-    url = f"https://zenodo.org/records/{Zenodo_record}/files/Weinreb_in_vitro.h5ad"
+    url = f"https://zenodo.org/records/{zenodo_record_lt}/files/Weinreb_in_vitro.h5ad"
     
     adata = read(file_path, backup_url=url, sparse=True, cache=True)
     return adata
@@ -88,7 +88,7 @@ def Erickson_murine_development(
     if file_path is None:
         file_path = f"data/{dataset}"
         
-    url = f"https://zenodo.org/records/{Zenodo_record}/files/{dataset}"
+    url = f"https://zenodo.org/records/{zenodo_record_lt}/files/{dataset}"
     
     adata = read(file_path, backup_url=url, sparse=True, cache=True)
     return adata

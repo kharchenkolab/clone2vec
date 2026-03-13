@@ -47,13 +47,3 @@ on the following systems:
 
 Please visit [documentation web-site](https://sclitr.readthedocs.io/en/latest/) to check out API description and a few
 tutorials with analysis.
-
-An example with the dataset from [Weinreb et al., 2020](https://www.science.org/doi/10.1126/science.aaw3381) is available on
-[Google Colab](https://colab.research.google.com/github/kharchenkolab/scLiTr/blob/main/docs/source/Basic_usage.ipynb)
-(takes about 45 minutes on the CPU, of which approximately 30 minutes are clone2vec latent representation construction).
-
-## clones2cells
-
-For interactive exploration of clonal and gene expression embeddings together we recommend using
-our simple tool [clones2cells](https://github.com/serjisa/clones2cells_app).
-

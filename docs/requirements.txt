@@ -1,11 +1,15 @@
 sphinx
-sphinx-rtd-theme
 nbsphinx
 ipywidgets
 numpydoc
+scanpydoc
+sphinx-autodoc-typehints
 tqdm
 numpy
 pandas
+scipy
+seaborn
+matplotlib
 pynndescent
 scanpy
 scikit-learn
@@ -13,4 +17,5 @@ torch
 mpltern
 catboost
 geosketch
+fastglmpca
 textalloc

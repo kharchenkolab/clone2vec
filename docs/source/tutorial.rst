@@ -14,9 +14,9 @@ Firstly, we have to identify *k* nearest clonally labelled cells for each cell. 
 
     sl.tl.clonal_nn(
         adata,
-        obs_name="clone", # Column with clonal labels
-        use_rep="X_pca", # Which dimred use for graph construction
-        min_size=5, # Minimal clone size
+        obs_name="clone",  # Column with clonal labels
+        use_rep="X_pca",   # Which dimred to use for graph construction
+        min_size=5,         # Minimal clone size
     )
 
 Minimal clone size parameter is used to exclude small clones from embedding construction.
@@ -29,10 +29,23 @@ clonally labelled cell.
 
 .. code-block:: python
 
-    clones = sl.tl.clone2vec(
+    clones = sl.pp.clones_adata(
         adata,
-        obs_name="clone", # Column with clonal labels
-        fill_ct="cell_type", # Column with cell type annotation to fill `clones.X`
+        obs_name="clone",
+        min_size=5,
+        fill_obs="cell_type",  # Optional: composition column to fill clones layers
+    )
+
+    # build clone graph in clones.obsp["gex_adjacency"] using cell-level embedding
+    # e.g., cosine similarity between clone centroids in `adata.obsm["X_pca"]` and kNN
+    # (see your pipeline; not shown here for brevity)
+
+    sl.tl.clone2vec(
+        clones,
+        z_dim=10,
+        obsp_key="gex_adjacency",  # graph between clones
+        obsm_key="clone2vec",
+        uns_key="clone2vec",
     )
 
 After execution of this function we have AnnData-object :code:`clones` with clonal vector representation
@@ -49,8 +62,8 @@ Step 3: clone2vec analysis
 
 And after perform all other additional steps of analysis.
 
-Step 4: Identification of predictors of clonal behaviour
-********************************************************
+Step 4: Identify predictors of clonal behaviour
+***********************************************
 
 In the simplest case, the model can be built to identify gene expression predictors of (a) position on a
 clonal embedding and (b) cell type composition of clones based on the expression in progenitor cells (if they exist).
@@ -59,21 +72,19 @@ identify general gene expression predictors of the distribution of the clone on 
 
 .. code-block:: python
 
-    shapdata_c2v = sl.tl.predict_c2v(
+    shapdata_c2v = sl.tl.catboost(
         adata,
-        clones,
-        clone_col="clone", # Column with clonal labels
-        ct_col="cell_type", # Column with cell type labels
-        limit_ct="progenitors", # Prediction will be performed based on these cells
+        obsm_key="X_umap",  # predict clone position; replace with your embedding
+        gs_key="gs",         # optional: use gs split info if available
+        model="regressor",
+        num_trees=1000,
     )
 
-    shapdata_ct = sl.tl.predict_ct(
+    shapdata_ct = sl.tl.associations(
         adata,
-        clones,
-        clone_col="clone", # Column with clonal labels
-        ct_col="cell_type", # Column with cell type labels
-        limit_ct="progenitors", # Prediction will be performed based on these cells
-        ct_layer="frequencies", # Layer in `clones.layers` with proportions of cell types
+        response_key="proportions",    # or a specific layer/metric
+        response_field="obsm",         # depends on how you store targets
+        method="gam",                  # pearson/spearman/gam
     )
 
-For more detailed walkthrough see **Exampels** section.
+For a more detailed walkthrough see the Examples section.

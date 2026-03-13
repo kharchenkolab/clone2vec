@@ -1,17 +1,14 @@
-.. module:: sclitr
+.. currentmodule:: sl
 
 API
 ===
 
-How to import **scLiTr** package::
-
-   import sclitr as sl
-
 Datasets
--------------
+--------
 
 .. autosummary::
-   :toctree: .
+   :toctree: API
+   :nosignatures:
 
    datasets.Weinreb_in_vitro
    datasets.Erickson_murine_development
@@ -20,37 +17,102 @@ Preprocessing
 -------------
 
 .. autosummary::
-   :toctree: .
+   :toctree: API
+   :nosignatures:
 
-   pp.filter_clones
-   pp.prepare_multiple_injections
-   pp.prepare_clones2cells
+   pp.clones_adata
+   pp.make_unique_clones
+   pp.recalc_composition
+   pp.transfer_annotation
+   pp.transfer_expression
 
 Tools
 -----
 
 .. autosummary::
-   :toctree: .
+   :toctree: API
+   :nosignatures:
 
    tl.clonal_nn
-   tl.clone2vec
-   tl.transfer_clonal_annotation
-   tl.summarize_expression
-   tl.refill_ct
-   tl.predict_ct
-   tl.predict_c2v
+   tl.clonocluster
+   tl.smooth
+   tl.group_connectivity
 
-Plotting
+Embeddings
+----------
+
+.. autosummary::
+   :toctree: API
+   :nosignatures:
+
+   tl.clone2vec
+   tl.clone2vec_Poi
+   tl.project_clone2vec
+   tl.project_clone2vec_Poi
+   tl.find_mnn
+   tl.align
+
+Associations
+------------
+
+.. autosummary::
+   :toctree: API
+   :nosignatures:
+
+   tl.associations
+   tl.graph_associations
+   tl.eigenvalue_test
+   tl.catboost
+
+Utils
 -----
 
 .. autosummary::
-   :toctree: .
+   :toctree: API
+   :nosignatures:
 
-   pl.basic_stats
-   pl.double_injection_composition
-   pl.clone
-   pl.epochs_loss
-   pl.kde
-   pl.ct_predictors
-   pl.c2v_annotation
-   
+   utils.stack_layers
+   utils.correct_shap
+   utils.connect_clones
+   utils.get_connectivity_matrix
+   utils.regress_categories
+   utils.impute
+   utils.gs
+
+Plotting
+--------
+
+.. autosummary::
+   :toctree: API
+   :nosignatures:
+
+   pl.group_scatter
+   pl.group_kde
+   pl.loss_history
+   pl.clone_size
+   pl.nesting_clones
+   pl.volcano
+   pl.shap_volcano
+   pl.barplot
+   pl.heatmap
+   pl.predictors_comparison
+   pl.catboost_perfomance
+   pl.clones2cells
+   pl.graph
+   pl.group_connectivity
+   pl.pca_loadings
+   pl.scaled_dotplot
+   pl.scatter2vars
+   pl.embedding_axis
+   pl.small_cbar
+   pl.fancy_legend
+
+Seurat
+------
+
+.. autosummary::
+   :toctree: API
+   :nosignatures:
+
+   seurat.read
+   seurat.integrate_data

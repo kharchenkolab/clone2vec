@@ -1,0 +1,24 @@
+.wy-nav-content img,
+figure img,
+div.figure img,
+.nboutput img,
+.nboutput svg {
+  max-width: 100%;
+  height: auto !important;
+  width: auto;
+}
+
+.nboutput .output_area {
+  display: inline-block;
+  max-width: 100%;
+  height: auto !important;
+}
+
+.nboutput .output_subarea {
+  text-align: center;
+  overflow-x: auto;
+}
+
+.nboutput .output_area pre {
+  white-space: pre-wrap;
+}

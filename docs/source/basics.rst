@@ -12,7 +12,7 @@ Cells that seem identical at first glance can have very different fates. Even wi
 tissue, different clones generate a mix of different cell types, revealing hidden functional diversity among cell populations. 
 By analyzing clones in detail, we can better understand development, disease, and how tissues regenerate.
 
-clone2vec: learning clonal contexts from barcoded scRNAseq data
+clone2vec: learning clonal contexts from barcoded scRNA-Seq data
 ---------------------------------------------------------------
 When analyzing barcoded single-cell transcriptomics data, you notice many clones that have the same combinations of cell types 
 or occupy similar transcriptional niches.
@@ -29,7 +29,7 @@ which learns the "clonal context" of cells directly from transcriptional neighbo
 
 Our method is inspired by **word2vec**, a machine learning model used in language processing. In word2vec, each word is represented as 
 a point in a multi-dimensional space based on its context. Words that appear together in similar contexts have similar meanings. 
-For example, in a language model, "king" and "queen" are close to each other in meaning, just like "apple" and "banana" might be.
+For example, in a language model, "rat" and "mouse" are close to each other in meaning, just like "apple" and "banana" might be.
 
 Clone2vec works the same way, but instead of words we use clonal identities of cells. Just like word2vec learns relationships between 
 words based on the company they keep, clone2vec learns relationships between clones based on the neighborhoods their cells occupy in gene 
@@ -62,20 +62,3 @@ regulatory mechanisms that modulate developmental outcomes.
 
 This scalable framework offered by clone2vec can be adapted to other tissue systems in embryonic development, immunology, stem cell 
 research, cancer studies, and tissue regeneration.
-
-Exploring the clonal atlas via clonal and transcriptional embeddings with clones2cells
---------------------------------------------------------------------------------------
-The **clones2cells** viewer allows users to explore clonal relationships and gene expression patterns in an interactive way. 
-The app visualizes how different clones relate to each other and how they map onto transcriptional space.
-
-On the left side (clone2vec UMAP), we show a clonal embedding, in which each dot is a clone. Clonal embeddings display the clones 
-positioned relative to each other in a learned space. Clones that appear close together likely share similar fate potentials or arise 
-from related progenitors. Users can click on an individual clone or select multiple clones using the lasso tool to visualize cells from
-the clone(s) on the right side (gene expression UMAP).
-
-.. image:: _static/images/clones_selection.png
-   :alt: Clones selection
-   :width: 800
-   :align: center
-
-An example of clones2cells application can be found for the `Erickson, Isaev, et al. dataset <https://clones2cells.streamlit.app>`_. For gene expression analysis, you can use CellxGene web-browser (`tutorial <https://cellxgene.cziscience.com/docs/04__Analyze%20Public%20Data/4_1__Hosted%20Tutorials>`_, also exists for the `Erickson, Isaev, et al. dataset <https://adameykolab.hifo.meduniwien.ac.at/cellxgene_public/filecrawl/2024_Erickson_Isaev>`_).

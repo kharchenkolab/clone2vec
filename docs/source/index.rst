@@ -29,20 +29,6 @@ or the latest development version can be installed from GitHub using:
 
    pip install git+https://github.com/kharchenkolab/scLiTr
 
-clones2cells
-------------
-For interactive exploration of clonal and gene expression embeddings together we recommend using our simple tool `clones2cells <https://github.com/serjisa/clones2cells_app>`__. You can install all necessary dependencies via pip:
-
-.. code-block:: console
-
-   pip install streamlit plotly streamlit_plotly_events pandas
-
-and after launch the tool from the command line:
-
-.. code-block:: console
-
-   streamlit run https://raw.githubusercontent.com/serjisa/clones2cells_app/main/clones2cells_viewer.py --theme.base light
-
 .. toctree::
    :caption: Main
    :maxdepth: 2
@@ -53,11 +39,11 @@ and after launch the tool from the command line:
    api
 
 .. toctree::
-   :caption: Exampels
+   :caption: Examples
    :maxdepth: 0
    :hidden:
 
-   Basic_usage
-   Multiple_injections
-   Cluster_based_SHAP
-   Cluster_free_SHAP
+   Clonal_embeddings
+   Fast_clonal_embeddings
+   Spatial_classification_mRNA
+   
