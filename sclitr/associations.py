@@ -628,6 +628,29 @@ def graph_associations(
     key_added: str = "X_gPCA",
 ) -> None:
     """
+    Computes the supervised principal components analysis (sPCA) of the data
+    [10.1016/j.patcog.2010.12.015]. Shortly, it finds the axes that maximize the correlation
+    between the gene expression and the graph Laplacian (one can see it as an
+    autocorrelation-aware PCA).
+
+    Parameters
+    ----------
+    adata : sc.AnnData
+        AnnData object containing the data.
+    layer : None | str
+        Layer to use for the analysis.
+    graph_key : str
+        Key to use for the graph.
+    n_pcs : int
+        Number of principal components to compute.
+    adj_method : str
+        Method for adjusting p-values.
+    key_added : str
+        Key to use for adding the results to the AnnData object.
+
+    Returns
+    -------
+    None
     """
     from scipy.sparse.linalg import eigsh
     import scipy.stats as stats

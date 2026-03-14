@@ -36,6 +36,16 @@ tw_cdf_tabular = {
 def _tracy_widom_cdf(x: float) -> float:
     """
     Computes the CDF of the Tracy-Widom distribution (with beta = 1).
+
+    Parameters
+    ----------
+    x : float
+        Value at which to evaluate the CDF.
+
+    Returns
+    -------
+    float
+        The value of the CDF at x.
     """
     if x > 3:
         tail_prob = np.exp(-2.0/3.0 * x**1.5) / (4.0 * np.sqrt(np.pi) * x**1.5)
@@ -57,6 +67,17 @@ def _tracy_widom_cdf(x: float) -> float:
 
 def _calculate_statistics(X: np.ndarray) -> float:
     """
+    Calculates the test statistic for the Tracy-Widom distribution.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Matrix of shape (n, p) containing the data.
+
+    Returns
+    -------
+    float
+        The value of the test statistic.
     """
     n, p = X.shape
     X_centered = (X - np.mean(X, axis=0)) / np.std(X, axis=0)
@@ -85,6 +106,28 @@ def eigenvalue_test(
 ):
     """
     Performs Johnstone’s Spiked Covariance Test to identify if the embedding is random.
+
+    Parameters
+    ----------
+    adata : sc.AnnData | np.ndarray
+        AnnData object or numpy array containing the data.
+    key : str | None
+        Key to use for AnnData input.
+    key_added : str
+        Key to use for adding the results to the AnnData object.
+    flavor : Literal["asymptotic", "synthetic"]
+        Flavor of the test to use.
+    n_simulations : int
+        Number of simulations to use for the synthetic approach.
+    progress_bar : bool
+        Whether to show a progress bar.
+    null_distribution : np.ndarray | None
+        Null distribution to use for the synthetic approach.
+
+    Returns
+    -------
+    dict
+        Dictionary containing the test statistic and p-value.
     """
     start = logg.info(f"computing eigenvalues test via {flavor} approach")
 

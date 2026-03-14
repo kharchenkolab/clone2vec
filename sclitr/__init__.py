@@ -5,7 +5,7 @@ from . import preprocessing as pp
 from . import utils
 from . import seurat
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 
 # Restrict top-level tab-completion to submodules only
 __all__ = [

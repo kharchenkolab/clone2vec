@@ -33,7 +33,7 @@ def Erickson_murine_development(
     file_path: str | Path | None = None,
 ) -> AnnData:
     """
-    Dataset from [PMID: None] with clonal atlas of murine development.
+    Dataset from [PMID: 40502176] with clonal atlas of murine development.
 
     Parameters
     ----------

@@ -17,6 +17,18 @@ from .associations import _clr, _fast_corr_cols
 logg = sc.logging
 
 class _catboost_tqdm:
+    """
+    Custom progress bar for CatBoost training.
+
+    Parameters
+    ----------
+    total_iterations : int
+        Total number of iterations.
+    show : bool, optional
+        Whether to show the progress bar, by default True.
+    prefix : str, optional
+        Prefix for the progress bar, by default "".
+    """
     def __init__(self, total_iterations, show: bool = True, prefix: str = ""):
         if show:
             self.pbar = tqdm(

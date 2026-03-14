@@ -3,11 +3,11 @@
 # -- Project information
 
 project = "scLiTr"
-copyright = "2024, Kharchenko lab, Adameyko lab"
+copyright = "2026, Kharchenko lab, Adameyko lab"
 authors = "Isaev"
 
-release = "2.0.0"
-version = "2.0.0"
+release = "2.0.1"
+version = "2.0.1"
 
 # -- General configuration ------------------------------------------------
 
