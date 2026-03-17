@@ -272,3 +272,98 @@ def test_spearman_matches_scipy(matrix_kind, adata_small_dense, adata_small_spar
         assert np.isfinite(p_pkg)
         assert np.isclose(r_pkg, r_scipy, atol=1e-8)
         assert np.isclose(p_pkg, p_scipy, atol=1e-8)
+
+
+# ===== binomial=True tests =====
+
+@pytest.fixture(scope="session")
+def adata_binomial(adata_small_dense):
+    """Create an adata with count-based response in obsm for binomial testing."""
+    ad = adata_small_dense.copy()
+    rng = np.random.RandomState(99)
+    # Simulate count data: 3 categories, the response columns are counts
+    n = ad.n_obs
+    counts = rng.multinomial(50, [0.5, 0.3, 0.2], size=n).astype(float)
+    ad.obsm["clone_counts"] = counts
+    return ad
+
+
+@pytest.mark.parametrize("method", ["pearson", "spearman"])
+def test_associations_binomial_correlation(method, adata_binomial):
+    ad = adata_binomial.copy()
+    sl.tl.associations(
+        ad,
+        response_key="clone_counts",
+        response_field="obsm",
+        use_rep="X",
+        method=method,
+        binomial=True,
+        random_state=0,
+    )
+    key_prefix = f"clone_counts:X:{method}"
+    assert f"{key_prefix}:r" in ad.varm
+    assert f"{key_prefix}:pvalue" in ad.varm
+    assert f"{key_prefix}:p_adj" in ad.varm
+
+    r = ad.varm[f"{key_prefix}:r"]
+    assert r.shape[0] == ad.n_vars
+    assert r.shape[1] == 3
+    # Correlations should be in [-1, 1] where finite
+    finite_r = r.values[np.isfinite(r.values)]
+    assert np.all(finite_r >= -1.0 - 1e-10)
+    assert np.all(finite_r <= 1.0 + 1e-10)
+
+
+def test_associations_binomial_gam(adata_binomial):
+    ad = adata_binomial.copy()
+    ad = ad[:, :min(20, ad.n_vars)].copy()
+    # Use only 1 response column for speed
+    ad.obsm["clone_counts_1col"] = ad.obsm["clone_counts"][:, :2]
+    sl.tl.associations(
+        ad,
+        response_key="clone_counts_1col",
+        response_field="obsm",
+        use_rep="X",
+        method="gam",
+        binomial=True,
+        random_state=0,
+        progress_bar=False,
+        n_jobs=1,
+        spline_df=4,
+    )
+    key_prefix = "clone_counts_1col:X:gam"
+    assert f"{key_prefix}:r2" in ad.varm
+    assert f"{key_prefix}:amplitude" in ad.varm
+    assert f"{key_prefix}:pvalue" in ad.varm
+    assert f"{key_prefix}:p_adj" in ad.varm
+
+
+def test_weighted_corr_vs_manual():
+    """Verify that _fast_corr with weights matches a manual weighted Pearson."""
+    from sclitr.associations import _fast_corr
+
+    rng = np.random.RandomState(42)
+    n, p, q = 100, 5, 2
+    X = rng.randn(n, p)
+    Y = rng.randn(n, q)
+    weights = rng.rand(n) * 10 + 1  # positive weights
+
+    res = _fast_corr(X, Y, method="pearson", significance=True, slope=False, weights=weights)
+
+    # Manual weighted Pearson
+    w = weights / weights.sum()
+    for j in range(p):
+        for k in range(q):
+            x = X[:, j]
+            y = Y[:, k]
+            mx = np.sum(w * x)
+            my = np.sum(w * y)
+            cov_xy = np.sum(w * (x - mx) * (y - my))
+            sx = np.sqrt(np.sum(w * (x - mx) ** 2))
+            sy = np.sqrt(np.sum(w * (y - my) ** 2))
+            r_manual = cov_xy / (sx * sy)
+            assert np.isclose(res["r"][j, k], r_manual, atol=1e-10), \
+                f"Weighted Pearson mismatch at ({j},{k}): {res['r'][j, k]} vs {r_manual}"
+
+    # Check p-values are finite
+    assert np.all(np.isfinite(res["pvalue"]))

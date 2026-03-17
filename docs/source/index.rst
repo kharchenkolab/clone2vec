@@ -23,7 +23,13 @@ scLiTr package might be installed via pip:
 
    pip install sclitr
 
-or the latest development version can be installed from GitHub using:
+If you want to install the package with all optional dependencies use:
+
+.. code-block:: console
+
+   pip install sclitr[full]
+
+The latest development version can be installed from GitHub using:
 
 .. code-block:: console
 

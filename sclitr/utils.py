@@ -28,7 +28,8 @@ def regress_categories(
 ) -> None:
     """
     Performs expression regression on categorical variables in obs_key. Instead of
-    calculation of full regression model, it calculates mean centering.
+    calculation of full regression model, it calculates mean centering. Can be effectively used
+    to exclude effect of the cell type signature from the expression matrix.
 
     Parameters
     ----------

@@ -705,7 +705,9 @@ def clone2vec_Poi(
     init: str = "svd",
 ) -> None | torch.nn.Module:
     """
-    Learn a clonal embedding using FastGLMPCA (Poisson) and store the embeddings.
+    Learn a clonal embedding using `fastglmpca` [PMID: 39110511] Python implementation
+    and store the embeddings. When `col_size_factor` is True and `row_intercept` is True,
+    the results should be comparable with the regular `clone2vec`.
 
     Parameters
     ----------
