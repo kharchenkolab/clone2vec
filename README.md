@@ -6,10 +6,10 @@
 ![PyPI](https://img.shields.io/pypi/v/sclitr)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-scLiTr is a Python package for analysis of lineage tracing coupled with single-cell RNA-Seq.
+clone2vec is a Python package for analysis of lineage tracing coupled with single-cell RNA-Seq.
 
 The main key of the package are clonal embeddings — vector representations of the whole clones
-in low dimensional space (clone2vec). These representations is a dropout-robust and cluster-free
+in low dimensional space. These representations is a dropout-robust and cluster-free
 way of representation of heterogeneity within clonal behaviour for cell type tree-free hypothesis
 generation regarding cells' multipotency.
 
@@ -25,18 +25,18 @@ See [Technical Note](https://github.com/kharchenkolab/scLiTr/blob/main/docs/Tech
 
 ## Installation
 
-scLiTr might be installed via `pip` (takes 1-2 minutes on Google Colab):
+clone2vec might be installed via `pip` (takes 1-2 minutes on Google Colab):
 ```bash
 pip install sclitr
 ```
 or the latest development version can be installed from GitHub using:
 ```bash
-pip install git+https://github.com/kharchenkolab/scLiTr
+pip install git+https://github.com/kharchenkolab/clone2vec
 ```
 
 ## System requirements
 
-`scLiTr` requires Python 3.8 or later with packages listed in [setup.cfg](setup.cfg) file. The package was successfully tested
+`clone2vec` requires Python 3.8 or later with packages listed in [setup.cfg](setup.cfg) file. The package was successfully tested
 on the following systems:
 
 * macOS Sonoma 14.5 (Apple M1 Chip @ 3.20GHz × 8, 16GB RAM) — *MacBook Air M1*,
