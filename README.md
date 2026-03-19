@@ -1,6 +1,6 @@
 <p align="center"><a href="https://sclitr.readthedocs.io/en/latest/"><img src="docs/source/logo.png" height="150"></a></p>
 
-# scLiTr
+# clone2vec
 
 ![Tests](https://github.com/kharchenkolab/scLiTr/actions/workflows/tests.yml/badge.svg)
 ![PyPI](https://img.shields.io/pypi/v/sclitr)
