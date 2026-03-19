@@ -2076,7 +2076,7 @@ def predictors_comparison(
         try:
             df = shapdata.varm["signed_mean_shap"]
         except KeyError:
-            raise KeyError("varm['signed_mean_shap'] not found. Please run sl.utils.correct_shap() first with flags `normalize=False` and `correct_sign=True`.")
+            raise KeyError("varm['signed_mean_shap'] not found. Please run c2v.utils.correct_shap() first with flags `normalize=False` and `correct_sign=True`.")
     else:
         logg.warning(f"We expect sign-corrected and not normalized by maximum value SHAPs in varm['{varm_key}'].")
         df = shapdata.varm[varm_key]
@@ -2445,7 +2445,7 @@ def catboost_perfomance(
     from .associations import _fast_corr
 
     if "catboost_info" not in shapdata.uns.keys():
-        raise ValueError("catboost_info not found in shapdata.uns. Please, run `sl.tl.catboost()` first.")
+        raise ValueError("catboost_info not found in shapdata.uns. Please, run `c2v.tl.catboost()` first.")
 
     obsm_key = shapdata.uns["catboost_info"]["obsm_key"]
     fates_used = shapdata.uns["catboost_info"]["fates_used"]

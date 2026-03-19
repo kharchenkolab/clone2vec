@@ -3,7 +3,7 @@ import pandas as pd
 import scipy.sparse as sp
 import scanpy as sc
 import pytest
-import sclitr as sl
+import clone2vec as c2v
 
 
 # ===== Fixtures =====
@@ -14,8 +14,8 @@ def adata():
 
 @pytest.fixture(scope="session")
 def clones_basic(adata):
-    clones = sl.pp.clones_adata(adata, obs_name="clone", min_size=3, fill_obs="cell_type")
-    sl.tl.clonal_nn(adata, clones, obs_name="clone", k=10, use_rep="X_pca", obsp_name="gex_adjacency")
+    clones = c2v.pp.clones_adata(adata, obs_name="clone", min_size=3, fill_obs="cell_type")
+    c2v.tl.clonal_nn(adata, clones, obs_name="clone", k=10, use_rep="X_pca", obsp_name="gex_adjacency")
     return clones
 
 @pytest.fixture(scope="session")
@@ -35,7 +35,7 @@ def clones_sparse(clones_basic):
 # ===== clone2vec (Skip-Gram) =====
 
 def test_clone2vec_sparse(clones_sparse):
-    sl.embeddings.clone2vec(
+    c2v.embeddings.clone2vec(
         clones_sparse,
         z_dim=4,
         obsp_key="gex_adjacency",
@@ -52,7 +52,7 @@ def test_clone2vec_sparse(clones_sparse):
     assert "loss_history" in params
 
 def test_clone2vec_dense(clones_dense):
-    sl.embeddings.clone2vec(
+    c2v.embeddings.clone2vec(
         clones_dense,
         z_dim=3,
         obsp_key="gex_adjacency",
@@ -66,7 +66,7 @@ def test_clone2vec_dense(clones_dense):
 # ===== clone2vec (fastglmpca) =====
 
 def test_clone2vec_poi_sparse(clones_sparse):
-    sl.embeddings.clone2vec_Poi(
+    c2v.embeddings.clone2vec_Poi(
         clones_sparse,
         z_dim=5,
         obsp_key="gex_adjacency",
@@ -82,7 +82,7 @@ def test_clone2vec_poi_sparse(clones_sparse):
     assert params["type"] == "fit"
 
 def test_clone2vec_poi_dense(clones_dense):
-    sl.embeddings.clone2vec_Poi(
+    c2v.embeddings.clone2vec_Poi(
         clones_dense,
         z_dim=2,
         obsp_key="gex_adjacency",
@@ -97,11 +97,11 @@ def test_clone2vec_poi_dense(clones_dense):
 
 @pytest.fixture(scope="session")
 def projection_setup(adata):
-    clones_all = sl.pp.clones_adata(adata, obs_name="clone", min_size=3, fill_obs="cell_type")
-    sl.tl.clonal_nn(adata, clones_all, obs_name="clone", k=10, use_rep="X_pca", obsp_name="gex_adjacency")
+    clones_all = c2v.pp.clones_adata(adata, obs_name="clone", min_size=3, fill_obs="cell_type")
+    c2v.tl.clonal_nn(adata, clones_all, obs_name="clone", k=10, use_rep="X_pca", obsp_name="gex_adjacency")
 
     clones_ref = clones_all.copy()
-    sl.embeddings.clone2vec(
+    c2v.embeddings.clone2vec(
         clones_ref,
         z_dim=3,
         obsp_key="gex_adjacency",
@@ -109,7 +109,7 @@ def projection_setup(adata):
         progress_bar=True,
         device="cpu",
     )
-    sl.embeddings.clone2vec_Poi(
+    c2v.embeddings.clone2vec_Poi(
         clones_ref,
         z_dim=3,
         obsp_key="gex_adjacency",
@@ -127,7 +127,7 @@ def projection_setup(adata):
 
 def test_project_clone2vec(projection_setup):
     clones_query, clones_ref = projection_setup
-    sl.embeddings.project_clone2vec(
+    c2v.embeddings.project_clone2vec(
         clones_query,
         clones_ref,
         obsm_key_query="ref_gex_adjacency",
@@ -146,7 +146,7 @@ def test_project_clone2vec(projection_setup):
 
 def test_project_clone2vec_poi(projection_setup):
     clones_query, clones_ref = projection_setup
-    sl.embeddings.project_clone2vec_Poi(
+    c2v.embeddings.project_clone2vec_Poi(
         clones_query,
         clones_ref,
         obsm_key_query="ref_gex_adjacency",

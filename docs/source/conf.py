@@ -2,12 +2,12 @@
 
 # -- Project information
 
-project = "scLiTr"
+project = "clone2vec"
 copyright = "2026, Kharchenko lab, Adameyko lab"
 authors = "Isaev"
 
-release = "2.0.1"
-version = "2.0.1"
+release = "0.0.1"
+version = "0.0.1"
 
 # -- General configuration ------------------------------------------------
 
@@ -16,14 +16,14 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../../."))
 
-import sclitr as sl
-sys.modules["sl"] = sl
-sys.modules["sl.tl"] = sl.tools
-sys.modules["sl.pl"] = sl.plotting
-sys.modules["sl.pp"] = sl.preprocessing
-sys.modules["sl.utils"] = sl.utils
-sys.modules["sl.seurat"] = sl.seurat
-sys.modules["sl.datasets"] = sl.datasets
+import clone2vec as c2v
+sys.modules["c2v"] = c2v
+sys.modules["c2v.tl"] = c2v.tools
+sys.modules["c2v.pl"] = c2v.plotting
+sys.modules["c2v.pp"] = c2v.preprocessing
+sys.modules["c2v.utils"] = c2v.utils
+sys.modules["c2v.seurat"] = c2v.seurat
+sys.modules["c2v.datasets"] = c2v.datasets
 
 needs_sphinx = "2.0"
 
@@ -74,7 +74,7 @@ html_theme_options = {
     "includehidden": True,
     "logo_only": True,
     # Header GitHub repository button
-    "repository_url": "https://github.com/kharchenkolab/scLiTr",
+    "repository_url": "https://github.com/kharchenkolab/clone2vec",
     "repository_branch": "main",
     "use_repository_button": True,
 }
@@ -82,7 +82,7 @@ html_theme_options = {
 # Required for scanpydoc.rtd_github_links
 html_context = {
     "github_user": "kharchenkolab",
-    "github_repo": "scLiTr",
+    "github_repo": "clone2vec",
     "github_version": "main",
     "doc_path": "docs/source",
 }

@@ -1,9 +1,9 @@
-<p align="center"><a href="https://sclitr.readthedocs.io/en/latest/"><img src="docs/source/logo.png" height="150"></a></p>
+<p align="center"><a href="https://clone2vec.readthedocs.io/en/latest/"><img src="docs/source/logo.png" height="150"></a></p>
 
 # clone2vec
 
-![Tests](https://github.com/kharchenkolab/scLiTr/actions/workflows/tests.yml/badge.svg)
-![PyPI](https://img.shields.io/pypi/v/sclitr)
+![Tests](https://github.com/kharchenkolab/clone2vec/actions/workflows/tests.yml/badge.svg)
+![PyPI](https://img.shields.io/pypi/v/clone2vec)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 clone2vec is a Python package for analysis of lineage tracing coupled with single-cell RNA-Seq.
@@ -21,13 +21,13 @@ will be used as embedding for further analysis.
 
 ## Benchmarking illustrations
 
-See [Technical Note](https://github.com/kharchenkolab/scLiTr/blob/main/docs/Technical_note.pdf) for more details.
+See [Technical Note](https://github.com/kharchenkolab/clone2vec/blob/main/docs/Technical_note.pdf) for more details.
 
 ## Installation
 
 clone2vec might be installed via `pip` (takes 1-2 minutes on Google Colab):
 ```bash
-pip install sclitr
+pip install clone2vec
 ```
 or the latest development version can be installed from GitHub using:
 ```bash
@@ -45,5 +45,5 @@ on the following systems:
 
 ## Documentation and tutorials
 
-Please visit [documentation web-site](https://sclitr.readthedocs.io/en/latest/) to check out API description and a few
+Please visit [documentation web-site](https://clone2vec.readthedocs.io/en/latest/) to check out API description and a few
 tutorials with analysis.

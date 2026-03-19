@@ -124,7 +124,7 @@ def _prepare_pools(
                 validation_key = adata.uns["gs"]["obs_key"]
                 validation_value = adata.uns["gs"]["keys"]["validation"]
             except:
-                raise ValueError("gs_key not found in adata.uns. Please run sl.tl.gs() or set validation_key and validation_value.")
+                raise ValueError("gs_key not found in adata.uns. Please run c2v.tl.gs() or set validation_key and validation_value.")
         else:
             validation_key = adata.uns[gs_key]["obs_key"]
             validation_value = adata.uns[gs_key]["keys"]["validation"]
@@ -298,7 +298,7 @@ def catboost(
     obsm_key : str
         Key in `adata.obsm` to use for the response variable.
     gs_key : str | None, optional
-        Key in `adata.obs` with `sl.tl.gs()` parameters. Default is None.
+        Key in `adata.obs` with `c2v.tl.gs()` parameters. Default is None.
     validation_key : str | None, optional
         Key in `adata.obs` to use for the train/validation split. If None, reconstructed from
         the adata.uns[gs_key]. Default is None.

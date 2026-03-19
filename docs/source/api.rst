@@ -1,4 +1,4 @@
-.. currentmodule:: sl
+.. currentmodule:: c2v
 
 API
 ===

@@ -3,7 +3,7 @@ import pandas as pd
 import scanpy as sc
 import scipy.sparse as sp
 import pytest
-import sclitr as sl
+import clone2vec as c2v
 
 
 # ===== Fixtures =====
@@ -14,7 +14,7 @@ def adata():
 
 @pytest.fixture(scope="session")
 def clones_base(adata):
-    clones = sl.pp.clones_adata(adata, obs_name="clone", min_size=30, fill_obs=None)
+    clones = c2v.pp.clones_adata(adata, obs_name="clone", min_size=30, fill_obs=None)
     return clones
 
 @pytest.fixture(scope="session")
@@ -49,7 +49,7 @@ def clones_dataframe(clones_with_pca):
 @pytest.mark.parametrize("rep_kind", ["dense", "dataframe"]) 
 def test_find_mnn_builds_graph_and_uns(rep_kind, clones_dense, clones_dataframe):
     clones = clones_dense if rep_kind == "dense" else clones_dataframe
-    sl.tl.find_mnn(clones, batch_key="batch", use_rep="X_pca", k=5, metric="euclidean", uns_key="integration_anchors", graph_key="mnn")
+    c2v.tl.find_mnn(clones, batch_key="batch", use_rep="X_pca", k=5, metric="euclidean", uns_key="integration_anchors", graph_key="mnn")
 
     assert "mnn" in clones.obsp
     G = clones.obsp["mnn"]
@@ -71,11 +71,11 @@ def test_find_mnn_builds_graph_and_uns(rep_kind, clones_dense, clones_dataframe)
 
 def test_align_produces_adjusted_representation(clones_dense):
     clones = clones_dense.copy()
-    sl.tl.find_mnn(clones, batch_key="batch", use_rep="X_pca", k=5, metric="euclidean", uns_key="integration_anchors", graph_key="mnn")
+    c2v.tl.find_mnn(clones, batch_key="batch", use_rep="X_pca", k=5, metric="euclidean", uns_key="integration_anchors", graph_key="mnn")
 
     clones.obsm["clone2vec"] = np.array(clones.obsm["X_pca"]) + 1e-6
 
-    sl.tl.align(clones, use_rep="clone2vec", adj_rep="clone2vec_pa", uns_key="integration_anchors")
+    c2v.tl.align(clones, use_rep="clone2vec", adj_rep="clone2vec_pa", uns_key="integration_anchors")
 
     assert "clone2vec_pa" in clones.obsm
     Z_orig = clones.obsm["clone2vec"]
@@ -97,8 +97,8 @@ def test_order_write_read_round_trip():
         index=["A", "B", "C"],
         columns=["A", "B", "C"],
     )
-    order = sl.integration._hierarchical_concatenation(sim)
-    s = sl.integration._write_order(order)
-    order_back = sl.integration._read_order(s)
+    order = c2v.integration._hierarchical_concatenation(sim)
+    s = c2v.integration._write_order(order)
+    order_back = c2v.integration._read_order(s)
 
     assert str(order) == str(order_back)

@@ -3,7 +3,7 @@ import pandas as pd
 import scipy.sparse as sp
 import scanpy as sc
 import pytest
-import sclitr as sl
+import clone2vec as c2v
 
 
 # ===== Fixtures =====
@@ -50,10 +50,10 @@ def test_stack_layers_basic(matrix_kind, adata_dense, adata_sparse):
     ad.obsm["X_umap"] = rng.rand(ad.n_obs, 2)
     ad.obsm["DF_embed"] = pd.DataFrame(rng.rand(ad.n_obs, 3), columns=["a","b","c"], index=ad.obs_names)
 
-    stacked = sl.utils.stack_layers(ad, layers=["l1", "l2"], layer_col_added="layer")
+    stacked = c2v.utils.stack_layers(ad, layers=["l1", "l2"], layer_col_added="layer")
 
-    mask_l1 = ~sl.utils._nan_mask(ad.layers["l1"]) if matrix_kind == "sparse" else ~np.isnan(X_l1).any(axis=1)
-    mask_l2 = ~sl.utils._nan_mask(ad.layers["l2"]) if matrix_kind == "sparse" else ~np.isnan(X_l2).any(axis=1)
+    mask_l1 = ~c2v.utils._nan_mask(ad.layers["l1"]) if matrix_kind == "sparse" else ~np.isnan(X_l1).any(axis=1)
+    mask_l2 = ~c2v.utils._nan_mask(ad.layers["l2"]) if matrix_kind == "sparse" else ~np.isnan(X_l2).any(axis=1)
     expected_rows = int(mask_l1.sum() + mask_l2.sum())
 
     assert stacked.n_obs == expected_rows
@@ -86,7 +86,7 @@ def test_nan_mask_dense():
         [4.0, 5.0, np.nan],
         [7.0, 8.0, 9.0],
     ])
-    mask = sl.utils._nan_mask(X)
+    mask = c2v.utils._nan_mask(X)
     assert mask.dtype == bool
     assert mask.tolist() == [False, True, True, False]
 
@@ -96,14 +96,14 @@ def test_nan_mask_sparse():
     rows = np.array([0, 1, 2, 3])
     cols = np.array([0, 0, 1, 2])
     X = sp.csr_matrix((data, (rows, cols)), shape=(5, 4))
-    mask = sl.utils._nan_mask(X)
+    mask = c2v.utils._nan_mask(X)
     # Row 1 has NaN, others do not
     assert mask.tolist() == [False, True, False, False, False]
 
 
 def test_nan_mask_sparse_empty():
     X = sp.csr_matrix((3, 4))
-    mask = sl.utils._nan_mask(X)
+    mask = c2v.utils._nan_mask(X)
     assert mask.tolist() == [False, False, False]
 
 
@@ -112,7 +112,7 @@ def test_nan_mask_sparse_empty():
 def test_regress_categories(adata_dense):
     ad = adata_dense.copy()
     ad.obs["cell_type"] = ad.obs["cell_type"].astype("category")
-    sl.utils.regress_categories(ad, obs_key="cell_type", layer=None, key_added="regressed")
+    c2v.utils.regress_categories(ad, obs_key="cell_type", layer=None, key_added="regressed")
     assert "X_regressed" in ad.layers
     orig = ad.X
     reg = ad.layers["X_regressed"]
@@ -131,7 +131,7 @@ def test_get_connectivity_matrix():
         "connectivity": conn,
         "label_names": labels,
     }
-    df = sl.utils.get_connectivity_matrix(ad, uns_key="group_connectivity")
+    df = c2v.utils.get_connectivity_matrix(ad, uns_key="group_connectivity")
     assert isinstance(df, pd.DataFrame)
     assert list(df.index) == labels
     assert list(df.columns) == labels
@@ -150,7 +150,7 @@ def test_connect_clones():
         }),
     )
     clones.obs_names = [f"clone_{i}" for i in range(n_clones)]
-    sl.utils.connect_clones(clones, groupby="group", graph_key_added="test_graph")
+    c2v.utils.connect_clones(clones, groupby="group", graph_key_added="test_graph")
     assert "test_graph" in clones.obsp
     assert clones.obsp["test_graph"].shape == (n_clones, n_clones)
     assert sp.issparse(clones.obsp["test_graph"])
@@ -168,7 +168,7 @@ def test_connect_clones_oriented():
         }),
     )
     clones.obs_names = [f"c{i}" for i in range(n_clones)]
-    sl.utils.connect_clones(
+    c2v.utils.connect_clones(
         clones, groupby="group", graph_key_added="oriented",
         orient_col="time", orient_rule="increase",
     )
@@ -193,11 +193,11 @@ def test_correct_shap():
     shapdata.varm["gex_r"] = pd.DataFrame(
         rng.randn(n_vars, n_preds), index=shapdata.var_names, columns=pred_cols,
     )
-    sl.utils.correct_shap(shapdata, shap_key="mean_shap", corr_key="gex_r",
+    c2v.utils.correct_shap(shapdata, shap_key="mean_shap", corr_key="gex_r",
                            correct_sign=True, normalize=False)
     assert "signed_mean_shap" in shapdata.varm
 
-    sl.utils.correct_shap(shapdata, shap_key="mean_shap", corr_key="gex_r",
+    c2v.utils.correct_shap(shapdata, shap_key="mean_shap", corr_key="gex_r",
                            correct_sign=True, normalize=True)
     assert "signed_norm_mean_shap" in shapdata.varm
 
@@ -215,7 +215,7 @@ def test_impute_numeric(adata_dense):
     vals[na_idx] = np.nan
     ad.obs["score"] = vals
     ad.obs["score"] = ad.obs["score"].astype(float)
-    sl.utils.impute(ad, obs_name="score", value_to_impute="nan",
+    c2v.utils.impute(ad, obs_name="score", value_to_impute="nan",
                      use_rep="X_pca", key_added="imp", k=5)
     assert "score_imp" in ad.obs
     # imputed values should not be NaN for any cell
@@ -231,7 +231,7 @@ def test_impute_categorical(adata_dense):
     na_idx = rng.choice(ad.n_obs, size=max(5, ad.n_obs // 10), replace=False)
     labels.iloc[na_idx] = "NA"
     ad.obs["ct_with_na"] = labels
-    sl.utils.impute(ad, obs_name="ct_with_na", value_to_impute="NA",
+    c2v.utils.impute(ad, obs_name="ct_with_na", value_to_impute="NA",
                      use_rep="X_pca", key_added="imp", k=5)
     assert "ct_with_na_imp" in ad.obs
     imputed_vals = ad.obs["ct_with_na_imp"].astype(str).values

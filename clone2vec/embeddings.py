@@ -768,7 +768,7 @@ def clone2vec_Poi(
 
     start = logg.info("fitting clone2vec_Poi embeddings")
     if obsp_key not in clones.obsp:
-        raise KeyError(f"Graph '{obsp_key}' not found in clones.obsp. Did you run `sl.tl.clonal_nn(adata, clones)` before?")
+        raise KeyError(f"Graph '{obsp_key}' not found in clones.obsp. Did you run `c2v.tl.clonal_nn(adata, clones)` before?")
 
     start_time = time.time()
 

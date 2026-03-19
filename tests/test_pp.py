@@ -3,7 +3,7 @@ import pandas as pd
 import scipy.sparse as sp
 import scanpy as sc
 import pytest
-import sclitr as sl
+import clone2vec as c2v
 
 
 # ===== Fixtures =====
@@ -34,11 +34,11 @@ def adata_with_umap(adata_dense):
 
 @pytest.fixture(scope="session")
 def clones_basic(adata):
-    return sl.pp.clones_adata(adata, obs_name="clone", min_size=30, fill_obs=None)
+    return c2v.pp.clones_adata(adata, obs_name="clone", min_size=30, fill_obs=None)
 
 @pytest.fixture(scope="session")
 def clones_with_fill(adata):
-    return sl.pp.clones_adata(adata, obs_name="clone", min_size=30, fill_obs="cell_type")
+    return c2v.pp.clones_adata(adata, obs_name="clone", min_size=30, fill_obs="cell_type")
 
 @pytest.fixture(scope="session")
 def clones_with_embed(clones_with_fill):
@@ -77,7 +77,7 @@ def test_make_unique_clones(adata):
     ad = adata.copy()
     ad.obs["clone_1"] = ad.obs["clone"].copy()
     ad.obs["clone_2"] = ad.obs["clone"].copy()
-    adu = sl.pp.make_unique_clones(ad, ["clone_1", "clone_2"], final_obs_name="clone_combined")
+    adu = c2v.pp.make_unique_clones(ad, ["clone_1", "clone_2"], final_obs_name="clone_combined")
     n_non_na = int(np.sum(ad.obs["clone"] != "NA"))
     n_na = int(np.sum(ad.obs["clone"] == "NA"))
     assert adu.n_obs == 2 * n_non_na + n_na
@@ -88,7 +88,7 @@ def test_make_unique_clones(adata):
 # ===== recalc_composition =====
 
 def test_recalc_composition(adata, clones_with_fill):
-    cl_new = sl.pp.recalc_composition(adata, clones_with_fill, fill_obs="cell_type", obs_name="clone")
+    cl_new = c2v.pp.recalc_composition(adata, clones_with_fill, fill_obs="cell_type", obs_name="clone")
     assert cl_new.uns.get("fill_obs") == "cell_type"
     counts = cl_new.layers["counts"]
     props = cl_new.layers["proportions"]
@@ -105,7 +105,7 @@ def test_recalc_composition(adata, clones_with_fill):
 def test_transfer_annotation_clones_to_adata(adata, clones_with_fill):
     cl = clones_with_fill.copy()
     cl.obs["size_bin"] = pd.Categorical(np.where(cl.obs["n_cells"] >= cl.obs["n_cells"].median(), "large", "small"))
-    sl.pp.transfer_annotation(adata, cl, annotation_obs_clones=["size_bin"], created_obs_name=["c2v_size"], obs_name="clone")
+    c2v.pp.transfer_annotation(adata, cl, annotation_obs_clones=["size_bin"], created_obs_name=["c2v_size"], obs_name="clone")
     assert "c2v_size" in adata.obs
     has_na = np.any(adata.obs["c2v_size"].astype(str).values == "NA")
     assert has_na
@@ -116,7 +116,7 @@ def test_transfer_annotation_adata_to_clones(adata, clones_with_fill):
     mapping = dict(zip(cl.obs_names, cl.obs["dummy"].astype(str)))
     ad = adata.copy()
     ad.obs["dummy_from_clones"] = ad.obs["clone"].map(lambda c: mapping.get(c, "NA"))
-    sl.pp.transfer_annotation(ad, cl, annotation_obs_adata=["dummy_from_clones"], created_obs_name=["gex_dummy"], obs_name="clone")
+    c2v.pp.transfer_annotation(ad, cl, annotation_obs_adata=["dummy_from_clones"], created_obs_name=["gex_dummy"], obs_name="clone")
     assert "gex_dummy" in cl.obs
     vals = cl.obs["gex_dummy"].astype(str).values
     assert set(np.unique(vals)) <= {"A", "B", "NA"}
@@ -128,7 +128,7 @@ def test_transfer_annotation_adata_to_clones(adata, clones_with_fill):
 def test_transfer_expression_basic(agg_strategy, matrix_kind, adata_dense, adata_sparse, clones_with_fill):
     ad = adata_dense if matrix_kind == "dense" else adata_sparse
     cl = clones_with_fill
-    cl_expr = sl.pp.transfer_expression(ad, cl, obs_name="clone", strategy=agg_strategy, layers_to_obsm=["counts", "proportions", "X"])
+    cl_expr = c2v.pp.transfer_expression(ad, cl, obs_name="clone", strategy=agg_strategy, layers_to_obsm=["counts", "proportions", "X"])
     assert cl_expr.n_obs == cl.n_obs
     assert len(cl_expr.var_names) == (ad.raw.var_names.size if (ad.raw is not None and cl_expr.var_names.equals(ad.raw.var_names)) else ad.var_names.size)
     assert "counts" in cl_expr.obsm
@@ -138,7 +138,7 @@ def test_transfer_expression_basic(agg_strategy, matrix_kind, adata_dense, adata
 def test_transfer_expression_split_obs_dense(adata_dense, clones_with_fill):
     ad = adata_dense
     cl = clones_with_fill
-    cl_expr = sl.pp.transfer_expression(ad, cl, obs_name="clone", split_obs="cell_type", strategy="average")
+    cl_expr = c2v.pp.transfer_expression(ad, cl, obs_name="clone", split_obs="cell_type", strategy="average")
     groups = [g for g in pd.unique(ad.obs["cell_type"]) if pd.notna(g)]
     for g in groups:
         assert g in cl_expr.layers
@@ -157,7 +157,7 @@ def test_transfer_expression_use_raw_and_layer(adata_dense, clones_with_fill):
     ad = adata_dense.copy()
     ad.raw = ad
     ad.layers["custom"] = ad.X.copy()
-    cl_expr_raw = sl.pp.transfer_expression(ad, clones_with_fill, obs_name="clone", use_raw=True)
+    cl_expr_raw = c2v.pp.transfer_expression(ad, clones_with_fill, obs_name="clone", use_raw=True)
     assert len(cl_expr_raw.var_names) == ad.raw.var_names.size
-    cl_expr_layer = sl.pp.transfer_expression(ad, clones_with_fill, obs_name="clone", layer="custom")
+    cl_expr_layer = c2v.pp.transfer_expression(ad, clones_with_fill, obs_name="clone", layer="custom")
     assert len(cl_expr_layer.var_names) == ad.var_names.size

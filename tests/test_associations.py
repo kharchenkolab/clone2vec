@@ -3,7 +3,7 @@ import pandas as pd
 import scipy.sparse as sp
 import scanpy as sc
 import pytest
-import sclitr as sl
+import clone2vec as c2v
 import pytest
 
 # Skip CatBoost tests if library is unavailable
@@ -60,7 +60,7 @@ def adata_small_sparse(adata_small_dense):
 def test_associations_x_pearson_spearman(method, matrix_kind, adata_small_dense, adata_small_sparse):
     ad = adata_small_dense if matrix_kind == "dense" else adata_small_sparse
     ad = ad.copy()
-    sl.tl.associations(
+    c2v.tl.associations(
         ad,
         response_key="X_umap",
         response_field="obsm",
@@ -85,7 +85,7 @@ def test_associations_layers(matrix_kind, adata_small_dense, adata_small_sparse)
     ad.layers["l1"] = custom if matrix_kind == "dense" else sp.csr_matrix(custom)
     ad.layers["l2"] = custom if matrix_kind == "dense" else sp.csr_matrix(custom)
     ad.obsm["X_umap"] = np.random.RandomState(1).rand(ad.n_obs, 2)
-    sl.tl.associations(
+    c2v.tl.associations(
         ad,
         response_key="X_umap",
         response_field="obsm",
@@ -106,7 +106,7 @@ def test_associations_layers_concat(adata_small_dense):
     ad.layers["l1"] = ad.X.copy()
     ad.layers["l2"] = ad.X.copy()
     ad.obsm["X_umap"] = np.random.RandomState(2).rand(ad.n_obs, 1)
-    sl.tl.associations(
+    c2v.tl.associations(
         ad,
         response_key="X_umap",
         response_field="obsm",
@@ -124,7 +124,7 @@ def test_associations_use_raw(adata_small_dense):
     ad = adata_small_dense.copy()
     ad.raw = ad
     ad.obsm["X_umap"] = np.random.RandomState(3).rand(ad.n_obs, 2)
-    sl.tl.associations(
+    c2v.tl.associations(
         ad,
         response_key="X_umap",
         response_field="obsm",
@@ -145,7 +145,7 @@ def test_associations_gam_small(matrix_kind, adata_small_dense, adata_small_spar
     ad = ad.copy()
     ad = ad[:, :min(50, ad.n_vars)].copy()
     ad.obsm["X_umap"] = np.random.RandomState(4).rand(ad.n_obs, 1)
-    sl.tl.associations(
+    c2v.tl.associations(
         ad,
         response_key="X_umap",
         response_field="obsm",
@@ -178,7 +178,7 @@ def test_catboost_regressor_basic(matrix_kind, adata_small_dense, adata_small_sp
     ad = ad[:, :min(50, ad.n_vars)].copy()
     ad.obsm["X_umap"] = np.random.RandomState(5).rand(ad.n_obs, 2)
     _add_validation_split(ad, frac=0.3)
-    shapdata = sl.tl.catboost(
+    shapdata = c2v.tl.catboost(
         ad,
         obsm_key="X_umap",
         validation_key="valid_split",
@@ -214,7 +214,7 @@ def test_pearson_matches_scipy(matrix_kind, adata_small_dense, adata_small_spars
     rng = np.random.RandomState(11)
     ad.obsm["X_umap"] = rng.rand(ad.n_obs, 1)
 
-    sl.tl.associations(
+    c2v.tl.associations(
         ad,
         response_key="X_umap",
         response_field="obsm",
@@ -248,7 +248,7 @@ def test_spearman_matches_scipy(matrix_kind, adata_small_dense, adata_small_spar
     rng = np.random.RandomState(12)
     ad.obsm["X_umap"] = rng.rand(ad.n_obs, 1)
 
-    sl.tl.associations(
+    c2v.tl.associations(
         ad,
         response_key="X_umap",
         response_field="obsm",
@@ -291,7 +291,7 @@ def adata_binomial(adata_small_dense):
 @pytest.mark.parametrize("method", ["pearson", "spearman"])
 def test_associations_binomial_correlation(method, adata_binomial):
     ad = adata_binomial.copy()
-    sl.tl.associations(
+    c2v.tl.associations(
         ad,
         response_key="clone_counts",
         response_field="obsm",
@@ -319,7 +319,7 @@ def test_associations_binomial_gam(adata_binomial):
     ad = ad[:, :min(20, ad.n_vars)].copy()
     # Use only 1 response column for speed
     ad.obsm["clone_counts_1col"] = ad.obsm["clone_counts"][:, :2]
-    sl.tl.associations(
+    c2v.tl.associations(
         ad,
         response_key="clone_counts_1col",
         response_field="obsm",
@@ -340,7 +340,7 @@ def test_associations_binomial_gam(adata_binomial):
 
 def test_weighted_corr_vs_manual():
     """Verify that _fast_corr with weights matches a manual weighted Pearson."""
-    from sclitr.associations import _fast_corr
+    from clone2vec.associations import _fast_corr
 
     rng = np.random.RandomState(42)
     n, p, q = 100, 5, 2

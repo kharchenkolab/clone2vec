@@ -9,9 +9,9 @@ Firstly, we will create AnnData-object with clones.
 .. code-block:: python
 
     import scanpy as sc
-    import sclitr as sl
+    import clone2vec as c2v
 
-    clones = sl.pp.clones_adata(
+    clones = c2v.pp.clones_adata(
         adata,
         obs_name="clone", # Column with clonal labels
         min_size=2,       # Minimal clone size
@@ -29,13 +29,13 @@ clonally labelled cell.
 
 .. code-block:: python
 
-    sl.tl.clonal_nn(
+    c2v.tl.clonal_nn(
         adata,
         clones,
         use_rep="X_pca", # Which dimred to use for graph construction
     )
 
-    sl.tl.clone2vec(clones)
+    c2v.tl.clone2vec(clones)
 
 
 After execution of this function we have AnnData-object :code:`clones` with clonal vector representation

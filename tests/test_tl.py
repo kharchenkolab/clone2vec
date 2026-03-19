@@ -3,7 +3,7 @@ import pandas as pd
 import scipy.sparse as sp
 import scanpy as sc
 import pytest
-import sclitr as sl
+import clone2vec as c2v
 
 
 # ===== Fixtures =====
@@ -41,7 +41,7 @@ def adata_with_graph_sparse(adata):
 @pytest.mark.parametrize("matrix_kind", ["dense", "sparse"]) 
 def test_smooth_X(matrix_kind, adata_with_graph_dense, adata_with_graph_sparse):
     ad = adata_with_graph_dense if matrix_kind == "dense" else adata_with_graph_sparse
-    sl.tl.smooth(ad, field="X", key_added="smoothed", graph_key="connectivities", n_steps=2)
+    c2v.tl.smooth(ad, field="X", key_added="smoothed", graph_key="connectivities", n_steps=2)
     assert "X_smoothed" in ad.layers
     X_orig = ad.X
     X_sm = ad.layers["X_smoothed"]
@@ -57,7 +57,7 @@ def test_smooth_X(matrix_kind, adata_with_graph_dense, adata_with_graph_sparse):
 def test_smooth_layer(matrix_kind, adata_with_graph_dense, adata_with_graph_sparse):
     ad = adata_with_graph_dense if matrix_kind == "dense" else adata_with_graph_sparse
     ad.layers["custom"] = ad.X.copy()
-    sl.tl.smooth(ad, field="layer", names="custom", key_added="sm", graph_key="connectivities", n_steps=1)
+    c2v.tl.smooth(ad, field="layer", names="custom", key_added="sm", graph_key="connectivities", n_steps=1)
     assert "custom_sm" in ad.layers
     L_orig = ad.layers["custom"]
     L_sm = ad.layers["custom_sm"]
@@ -71,7 +71,7 @@ def test_smooth_obs(matrix_kind, adata_with_graph_dense, adata_with_graph_sparse
     ad = adata_with_graph_dense if matrix_kind == "dense" else adata_with_graph_sparse
     rng = np.random.RandomState(0)
     ad.obs["rand_obs"] = rng.rand(ad.n_obs).astype(float)
-    sl.tl.smooth(ad, field="obs", names="rand_obs", key_added="sm", graph_key="connectivities", n_steps=2)
+    c2v.tl.smooth(ad, field="obs", names="rand_obs", key_added="sm", graph_key="connectivities", n_steps=2)
     assert "rand_obs_sm" in ad.obs
     v_orig = ad.obs["rand_obs"].values
     v_sm = ad.obs["rand_obs_sm"].values
@@ -84,7 +84,7 @@ def test_smooth_obsm(matrix_kind, adata_with_graph_dense, adata_with_graph_spars
     if "X_pca" not in ad.obsm:
         sc.pp.pca(ad)
     Z_orig = ad.obsm["X_pca"].copy()
-    sl.tl.smooth(ad, field="obsm", names="X_pca", key_added="sm", graph_key="connectivities", n_steps=1)
+    c2v.tl.smooth(ad, field="obsm", names="X_pca", key_added="sm", graph_key="connectivities", n_steps=1)
     assert "X_pca_sm" in ad.obsm
     Z_sm = ad.obsm["X_pca_sm"]
     assert Z_sm.shape == Z_orig.shape
@@ -95,7 +95,7 @@ def test_smooth_obsm(matrix_kind, adata_with_graph_dense, adata_with_graph_spars
 def test_gs_without_batch(adata_with_graph_dense):
     pytest.importorskip("geosketch", reason="geosketch not installed; skipping gs tests")
     ad = adata_with_graph_dense.copy()
-    sl.utils.gs(ad, use_rep="X_pca", n=0.2, obs_key="gs", random_state=1)
+    c2v.utils.gs(ad, use_rep="X_pca", n=0.2, obs_key="gs", random_state=1)
     assert "gs" in ad.obs
     vals = ad.obs["gs"].astype(str).values
     assert set(np.unique(vals)) <= {"full", "sketch"}
@@ -111,7 +111,7 @@ def test_gs_with_batch(adata_with_graph_dense):
     n = ad.n_obs
     split = int(0.5 * n)
     ad.obs["batch"] = pd.Categorical(["A"] * split + ["B"] * (n - split))
-    sl.utils.gs(ad, use_rep="X_pca", batch_key="batch", n=0.2, obs_key="gs_b", random_state=2)
+    c2v.utils.gs(ad, use_rep="X_pca", batch_key="batch", n=0.2, obs_key="gs_b", random_state=2)
     assert "gs_b" in ad.obs
     vals = ad.obs["gs_b"].astype(str).values
     assert set(np.unique(vals)) <= {"full", "sketch"}
@@ -124,7 +124,7 @@ def test_gs_with_batch(adata_with_graph_dense):
 def test_gs_use_X_dense_sparse(matrix_kind, adata_with_graph_dense, adata_with_graph_sparse):
     pytest.importorskip("geosketch", reason="geosketch not installed; skipping gs tests")
     ad = adata_with_graph_dense if matrix_kind == "dense" else adata_with_graph_sparse
-    sl.utils.gs(ad, use_rep="X", n=0.1, obs_key="gs_x", random_state=3)
+    c2v.utils.gs(ad, use_rep="X", n=0.1, obs_key="gs_x", random_state=3)
     assert "gs_x" in ad.obs
     vals = ad.obs["gs_x"].astype(str).values
     assert set(np.unique(vals)) <= {"full", "sketch"}
@@ -134,8 +134,8 @@ def test_gs_use_X_dense_sparse(matrix_kind, adata_with_graph_dense, adata_with_g
 
 @pytest.fixture(scope="session")
 def clones_with_pca(adata):
-    cl = sl.pp.clones_adata(adata, obs_name="clone", min_size=30, fill_obs="cell_type")
-    cl_expr = sl.pp.transfer_expression(adata, cl, obs_name="clone")
+    cl = c2v.pp.clones_adata(adata, obs_name="clone", min_size=30, fill_obs="cell_type")
+    cl_expr = c2v.pp.transfer_expression(adata, cl, obs_name="clone")
     sc.pp.pca(cl_expr, n_comps=min(10, cl_expr.n_vars - 1, cl_expr.n_obs - 1))
     return cl_expr
 
@@ -147,7 +147,7 @@ def test_clonal_nn_basic(adata, clones_with_pca):
     if "X_pca" not in ad.obsm:
         sc.pp.pca(ad)
     cl = clones_with_pca.copy()
-    sl.tl.clonal_nn(ad, cl, obs_name="clone", k=5, use_rep="X_pca", obsp_name="gex_adj")
+    c2v.tl.clonal_nn(ad, cl, obs_name="clone", k=5, use_rep="X_pca", obsp_name="gex_adj")
     assert "gex_adj" in cl.obsp
     assert cl.obsp["gex_adj"].shape == (cl.n_obs, cl.n_obs)
     assert sp.issparse(cl.obsp["gex_adj"])
@@ -159,7 +159,7 @@ def test_clonal_nn_split_by(adata, clones_with_pca):
     if "X_pca" not in ad.obsm:
         sc.pp.pca(ad)
     cl = clones_with_pca.copy()
-    sl.tl.clonal_nn(
+    c2v.tl.clonal_nn(
         ad, cl, obs_name="clone", k=5, use_rep="X_pca",
         obsp_name="gex_adj_split", split_by="cell_type",
     )
@@ -182,7 +182,7 @@ def test_clonocluster(adata_with_graph_dense):
     # Ensure use_rep is in neighbors params (not always set by sc.pp.neighbors)
     if "use_rep" not in ad.uns.get("neighbors", {}).get("params", {}):
         ad.uns["neighbors"]["params"]["use_rep"] = "X_pca"
-    sl.tl.clonocluster(ad, alpha=0.2, beta=0.1, key_added="cc", lineage_graph="connected")
+    c2v.tl.clonocluster(ad, alpha=0.2, beta=0.1, key_added="cc", lineage_graph="connected")
     assert "cc_connectivities" in ad.obsp
     assert "cc" in ad.uns
     assert ad.uns["cc"]["connectivities_key"] == "cc_connectivities"
@@ -193,7 +193,7 @@ def test_clonocluster(adata_with_graph_dense):
 def test_group_connectivity(adata_with_graph_dense):
     ad = adata_with_graph_dense.copy()
     ad.obs["cell_type"] = ad.obs["cell_type"].astype("category")
-    sl.tl.group_connectivity(ad, groupby="cell_type", graph_key="connectivities")
+    c2v.tl.group_connectivity(ad, groupby="cell_type", graph_key="connectivities")
     assert "group_connectivity" in ad.uns
     gc = ad.uns["group_connectivity"]
     assert "connectivity" in gc
