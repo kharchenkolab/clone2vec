@@ -315,9 +315,13 @@ def group_connectivity(
             title=title,
         )
 
-    connectivity = get_connectivity_matrix(adata, uns_key).copy()
-    connectivity.values[connectivity.values < clip[0]] = 0
-    connectivity.values[connectivity.values > clip[1]] = clip[1]
+    connectivity = get_connectivity_matrix(adata, uns_key)
+    connectivity_values = connectivity.to_numpy(copy=True)
+    connectivity_values[connectivity_values < clip[0]] = 0
+    connectivity_values[connectivity_values > clip[1]] = clip[1]
+    connectivity = pd.DataFrame(
+        connectivity_values, index=connectivity.index, columns=connectivity.columns,
+    )
 
     emb = pd.DataFrame(
         emb, index=adata.obs_names, columns=["emb1", "emb2"]
@@ -1956,44 +1960,34 @@ def volcano(
     )
 
     if len(left_highlite_names) > 0:
-        import warnings
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message=r".*Series.__getitem__ treating keys as positions is deprecated.*",
-                category=FutureWarning,
-            )
-            ta.allocate(
-                ax,
-                x=df.loc[left_highlite_names, "log2fc"],
-                y=df.loc[left_highlite_names, "-log10p"],
-                text_list=left_highlite_names,
-                x_scatter=df.log2fc,
-                y_scatter=df["-log10p"],
-                x_lines=xlines,
-                y_lines=ylines,
-                **text_kws_left,
-            )
+        # `textalloc` indexes its inputs positionally, which pandas no longer
+        # supports for Series with a non-integer index, so pass plain arrays.
+        ta.allocate(
+            ax,
+            x=df.loc[left_highlite_names, "log2fc"].to_numpy(),
+            y=df.loc[left_highlite_names, "-log10p"].to_numpy(),
+            text_list=list(left_highlite_names),
+            x_scatter=df["log2fc"].to_numpy(),
+            y_scatter=df["-log10p"].to_numpy(),
+            x_lines=xlines,
+            y_lines=ylines,
+            **text_kws_left,
+        )
 
     if len(right_highlite_names) > 0:
-        import warnings
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message=r".*Series.__getitem__ treating keys as positions is deprecated.*",
-                category=FutureWarning,
-            )
-            ta.allocate(
-                ax,
-                x=df.loc[right_highlite_names, "log2fc"],
-                y=df.loc[right_highlite_names, "-log10p"],
-                text_list=right_highlite_names,
-                x_scatter=df.log2fc,
-                y_scatter=df["-log10p"],
-                x_lines=xlines,
-                y_lines=ylines,
-                **text_kws_right,
-            )
+        # `textalloc` indexes its inputs positionally, which pandas no longer
+        # supports for Series with a non-integer index, so pass plain arrays.
+        ta.allocate(
+            ax,
+            x=df.loc[right_highlite_names, "log2fc"].to_numpy(),
+            y=df.loc[right_highlite_names, "-log10p"].to_numpy(),
+            text_list=list(right_highlite_names),
+            x_scatter=df["log2fc"].to_numpy(),
+            y_scatter=df["-log10p"].to_numpy(),
+            x_lines=xlines,
+            y_lines=ylines,
+            **text_kws_right,
+        )
 
     if grid:
         ax.grid(alpha=0.3, zorder=0)

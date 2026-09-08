@@ -475,7 +475,10 @@ def impute(
     Xrep = adata.obsm[use_rep]
     X_values = Xrep.values if isinstance(Xrep, pd.DataFrame) else (Xrep.toarray() if sp.issparse(Xrep) else np.asarray(Xrep))
 
-    mask_target = labels.astype(str).values == str(value_to_impute)
+    # `Series.astype(str)` keeps missing values as NA in pandas >= 3, so stringify
+    # element-wise to keep matching `value_to_impute` against NaN/None working.
+    label_strings = np.asarray(labels.values, dtype=object).astype(str)
+    mask_target = label_strings == str(value_to_impute)
     mask_donor = ~mask_target
 
     if mask_target.sum() == 0:
@@ -517,7 +520,7 @@ def impute(
         y_neighbors = y_donors[nn_idx]
         y_pred = (W * y_neighbors).sum(axis=1)
         imputed = labels.astype(float).copy()
-        imputed.values[mask_target] = y_pred
+        imputed.iloc[mask_target] = y_pred
         adata.obs[f"{obs_name}_{key_added}"] = imputed
         lines = [
             "added",
@@ -525,7 +528,7 @@ def impute(
         ]
         logg.info("    finished ({time_passed})", deep="\n".join(lines), time=start)
     else:
-        donor_classes = labels.astype(str).values[mask_donor]
+        donor_classes = label_strings[mask_donor]
         classes = pd.Index(sorted(pd.unique(donor_classes)))
         prob = np.zeros((adata.n_obs, len(classes)), dtype=float)
         for i_row in range(nn_idx.shape[0]):
@@ -539,8 +542,8 @@ def impute(
         adata.obsm[classification_obsm] = prob_df
         pred_idx = np.argmax(prob[targets_idx], axis=1)
         pred_vals = classes.values[pred_idx]
-        imputed = labels.astype(str).copy()
-        imputed.values[mask_target] = pred_vals
+        imputed = pd.Series(label_strings, index=labels.index, name=labels.name)
+        imputed.iloc[mask_target] = pred_vals
         adata.obs[f"{obs_name}_{key_added}"] = imputed
         lines = [
             "added",

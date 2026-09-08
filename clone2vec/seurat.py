@@ -441,7 +441,12 @@ def integrate_data(
                 SeuratObject = importr("SeuratObject")
 
             try:
-                batch = ro.StrVector(adata.obs[batch_key].astype(str).values)
+                # `Series.astype(str)` keeps missing values as NA in pandas >= 3,
+                # which `ro.StrVector` cannot convert, so stringify element-wise.
+                batch_labels = np.asarray(
+                    adata.obs[batch_key].values, dtype=object
+                ).astype(str)
+                batch = ro.StrVector(batch_labels)
                 batch.names = ro.StrVector(adata.obs_names)
             except KeyError:
                 raise ValueError(f"Batch key {batch_key} not found in adata.obs.")

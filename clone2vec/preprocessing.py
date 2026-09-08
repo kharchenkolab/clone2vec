@@ -474,8 +474,9 @@ def transfer_expression(
             codes = np.array([clone_to_cat_idx.get(v, -1) for v in adata_vals], dtype=np.int64)
     else:
         categories = list(clones.obs_names)
-        labels = pd.Categorical(adata.obs[obs_name].values, categories=categories)
-        codes = labels.codes
+        codes = pd.Index(categories).get_indexer(
+            np.asarray(adata.obs[obs_name].values, dtype=object)
+        ).astype(np.int64)
     valid_mask = codes != -1
     rows = np.where(valid_mask)[0]
     cols = codes[valid_mask]
@@ -544,24 +545,20 @@ def transfer_expression(
         layers_to_obsm = ["X"] + list(clones.layers.keys())
     elif isinstance(layers_to_obsm, str):
         layers_to_obsm = [layers_to_obsm]
-    layers_to_obsm = np.array(layers_to_obsm)
+    layers_to_obsm = [str(l) for l in layers_to_obsm if l is not None]
     if "X" in layers_to_obsm:
         clones_expr.obsm["X"] = clones.to_df()
         clones_expr.obsm["X"].index = list(clones_expr.obs_names)
         clones_expr.obsm["X"].columns = clones.var_names
-    layers_to_obsm = layers_to_obsm[layers_to_obsm != "X"]
+    layers_to_obsm = [l for l in layers_to_obsm if l != "X"]
     for layer in layers_to_obsm:
-        layer = str(layer)
-        try:
-            clones_expr.obsm[layer] = clones.to_df(layer=layer)
-            clones_expr.obsm[layer].index = list(clones_expr.obs_names)
-            clones_expr.obsm[layer].columns = clones.var_names
-        except ValueError:
-            logg.warning(f"Layer '{layer}' not found in clones.obs. Skipping.")
-    if isinstance(layers_to_obsm, np.ndarray):
-        lt = list(layers_to_obsm)
-    else:
-        lt = layers_to_obsm
+        if layer not in clones.layers:
+            logg.warning(f"Layer '{layer}' not found in clones.layers. Skipping.")
+            continue
+        clones_expr.obsm[layer] = clones.to_df(layer=layer)
+        clones_expr.obsm[layer].index = list(clones_expr.obs_names)
+        clones_expr.obsm[layer].columns = clones.var_names
+    lt = list(layers_to_obsm)
     
     if split_obs is not None:
         groups = pd.unique(adata.obs[split_obs])

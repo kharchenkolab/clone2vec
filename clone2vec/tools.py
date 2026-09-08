@@ -569,7 +569,7 @@ def group_connectivity(
     start = logg.info("computing groups connectivity matrix")
     n_obs = adata.n_obs
     
-    if not pd.api.types.is_categorical_dtype(adata.obs[groupby]):
+    if not isinstance(adata.obs[groupby].dtype, pd.CategoricalDtype):
         adata.obs[groupby] = adata.obs[groupby].astype("category")
     
     labels = adata.obs[groupby].cat.codes.values
