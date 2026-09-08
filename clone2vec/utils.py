@@ -12,6 +12,7 @@ __all__ = [
     "stack_layers",
     "correct_shap",
     "connect_clones",
+    "permute_clones",
     "get_connectivity_matrix",
     "gs",
     "regress_categories",
@@ -107,6 +108,81 @@ def get_connectivity_matrix(
         index=adata.uns[uns_key]["label_names"],
         columns=adata.uns[uns_key]["label_names"],
     )
+
+def permute_clones(
+    clonal_labels: pd.Series,
+    batch: pd.Series | None = None,
+    keep_labels: list[str] | str | None = None,
+    random_state: None | int | np.random.Generator = 4,
+) -> pd.Series:
+    """
+    Shuffles clonal labels between the cells, optionally only within a batch.
+
+    Only cells sharing a batch exchange their clonal labels, therefore clone sizes and,
+    if `batch` is provided, batch composition of every clone are preserved – a batch
+    effect, if it exists, stays in the permuted labelling. Labels listed in `keep_labels`,
+    missing labels, and cells without a batch are left in place.
+
+    Parameters
+    ----------
+    clonal_labels : pd.Series
+        Clonal labels of the cells, typically `adata.obs[obs_name]`.
+    batch : pd.Series | None, optional
+        Batch of the cells, aligned with `clonal_labels` by index. If None, labels are
+        shuffled across the whole dataset. Default is None.
+    keep_labels : list[str] | str | None, optional
+        Labels to keep in place, for example "NA" for the cells without clonal
+        information. Default is None.
+    random_state : None | int | np.random.Generator, optional
+        Random state for reproducibility. Pass a `numpy.random.Generator` to draw
+        several independent permutations in a row. Default is 4.
+
+    Returns
+    -------
+    pd.Series
+        Permuted clonal labels with the index, name, and dtype of `clonal_labels`.
+    """
+    if not isinstance(clonal_labels, pd.Series):
+        clonal_labels = pd.Series(clonal_labels)
+
+    if keep_labels is None:
+        keep_labels = []
+    elif isinstance(keep_labels, str):
+        keep_labels = [keep_labels]
+
+    labels = clonal_labels.to_numpy()
+    kept = (clonal_labels.isin(keep_labels) | clonal_labels.isna()).to_numpy()
+    permutable = np.flatnonzero(~kept)
+
+    if batch is None:
+        groups = [permutable]
+    else:
+        if not isinstance(batch, pd.Series):
+            batch = pd.Series(batch, index=clonal_labels.index)
+        if not batch.index.equals(clonal_labels.index):
+            if batch.shape[0] != clonal_labels.shape[0]:
+                raise ValueError("batch must have the same length as clonal_labels.")
+            if batch.index.is_unique and clonal_labels.index.isin(batch.index).all():
+                batch = batch.loc[clonal_labels.index]
+            else:
+                logg.warning("batch index doesn't match the one of clonal_labels, assuming the same order of cells.")
+        batches = batch.to_numpy()[permutable]
+        groups = [permutable[batches == b] for b in pd.unique(batches) if pd.notna(b)]
+        n_permutable = sum(group.size for group in groups)
+        if n_permutable < permutable.size:
+            logg.warning(
+                f"{permutable.size - n_permutable} cells have no batch value, "
+                "their clonal labels are kept in place."
+            )
+
+    rng = np.random.default_rng(random_state)
+    permuted = labels.copy()
+    for group in groups:
+        permuted[group] = labels[rng.permutation(group)]
+
+    permuted = pd.Series(permuted, index=clonal_labels.index, name=clonal_labels.name)
+    return permuted.astype(clonal_labels.dtype)
+
 
 def stack_layers(
     adata: sc.AnnData,
@@ -508,9 +584,6 @@ def _nan_mask(X: np.ndarray | sp.sparse.csr_matrix) -> np.ndarray:
         else:
             mask = np.isnan(arr).any(axis=1)
         return mask
-
-
-
 
 
 def gs(

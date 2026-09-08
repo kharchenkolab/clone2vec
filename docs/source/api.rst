@@ -63,6 +63,7 @@ Associations
    tl.associations
    tl.graph_associations
    tl.eigenvalue_test
+   tl.spectral_permutation_test
    tl.catboost
 
 Utils
@@ -75,6 +76,7 @@ Utils
    utils.stack_layers
    utils.correct_shap
    utils.connect_clones
+   utils.permute_clones
    utils.get_connectivity_matrix
    utils.regress_categories
    utils.impute
@@ -92,6 +94,7 @@ Plotting
    pl.group_scatter
    pl.group_kde
    pl.loss_history
+   pl.spectral_permutation_test
    pl.clone_size
    pl.nesting_clones
    pl.volcano

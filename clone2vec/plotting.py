@@ -18,6 +18,7 @@ __all__ = [
     "group_scatter",
     "group_kde",
     "loss_history",
+    "spectral_permutation_test",
     "clone_size",
     "nesting_clones",
     "volcano",
@@ -1053,6 +1054,151 @@ def loss_history(
         return fig
     elif return_ax:
         return axes
+    elif show:
+        plt.show()
+
+def spectral_permutation_test(
+    clones: sc.AnnData,
+    uns_key: str = "spectral_permutation_test",
+    bins: int = 10,
+    alpha: float = 1,
+    edgecolor: str = "black",
+    label: str = "Clonal labels permutations",
+    observed_label: str = "Observed statistics",
+    legend: bool = False,
+    title: str | None = None,
+    xlabel: str = "Largest eigenvalue",
+    ylabel: str = "Number of permutations",
+    grid: bool = True,
+    show: bool = True,
+    figsize: tuple[float, float] | None = None,
+    ax: matplotlib.axes.Axes | None = None,
+    return_fig: bool = False,
+    hist_kws: dict | None = None,
+    line_kws: dict | None = None,
+) -> plt.Figure | matplotlib.axes.Axes | None:
+    """
+    Plot the permutation null distribution of the leading eigenvalue statistic
+    together with the statistic observed for the real clonal labels.
+
+    Parameters
+    ----------
+    clones : AnnData
+        Annotated data matrix at the clone level containing the results of
+        `c2v.tl.spectral_permutation_test` in `clones.uns`.
+    uns_key : str, optional
+        Key in `clones.uns` that stores the results of the test.
+        Default is "spectral_permutation_test".
+    bins : int, optional
+        Number of bins of the null distribution histogram. Default is 10.
+    alpha : float, optional
+        Opacity of the histogram bars. Default is 1.
+    edgecolor : str, optional
+        Color of the histogram bars edges. Default is "black".
+    label : str, optional
+        Legend label of the null distribution. Default is "Clonal labels permutations".
+    observed_label : str, optional
+        Legend label of the observed statistic. Default is "Observed statistics".
+    legend : bool, optional
+        Whether to draw the legend. Default is True.
+    title : str | None, optional
+        Title of the plot. Default is None.
+    xlabel : str, optional
+        x-axis label. Default is "Johnstone's statistics".
+    ylabel : str, optional
+        y-axis label. Default is "Number of permutations".
+    grid : bool, optional
+        Whether to draw grid lines. Default is True.
+    show : bool, optional
+        Whether to show the plot. Default is True.
+    figsize : tuple[float, float] | None, optional
+        Figure size. Default is None.
+    ax : matplotlib.axes.Axes | None, optional
+        Axes to plot on. Default is None.
+    return_fig : bool, optional
+        If True, returns the Matplotlib Figure object. Default is False.
+    hist_kws : dict | None, optional
+        Keyword arguments for `seaborn.histplot`. Default is None.
+    line_kws : dict | None, optional
+        Keyword arguments for the line of the observed statistic. Default is None.
+
+    Returns
+    -------
+    None or matplotlib.figure.Figure or matplotlib.axes.Axes
+        The plot figure if `return_fig` is True, or axes if `show` is False, otherwise None.
+
+    Raises
+    -------
+    KeyError
+        If `uns_key` is not present in `clones.uns`.
+    """
+    try:
+        results = clones.uns[uns_key]
+    except KeyError:
+        raise KeyError(
+            f"uns_key '{uns_key}' not found in clones.uns. "
+            "Did you run `c2v.tl.spectral_permutation_test(adata, clones)` before?"
+        )
+
+    null_distribution = np.asarray(results["null_distribution"], dtype=float)
+    observed_statistic = results["stat"]
+
+    finite = np.isfinite(null_distribution)
+    if not finite.all():
+        logg.warning(f"Skipping {np.sum(~finite)} permutations with a non-finite statistic.")
+        null_distribution = null_distribution[finite]
+
+    if hist_kws is None:
+        hist_kws = {}
+    if line_kws is None:
+        line_kws = {}
+    line_kws.setdefault("color", sns.color_palette()[3])
+    line_kws.setdefault("linestyle", "--")
+
+    if figsize is None:
+        figsize = (4, 3)
+
+    if ax:
+        show = False
+        return_ax = False
+        fig = ax.figure
+    else:
+        fig, ax = plt.subplots(figsize=figsize)
+        if show:
+            return_ax = False
+        else:
+            return_ax = True
+
+    sns.histplot(
+        null_distribution,
+        bins=bins,
+        alpha=alpha,
+        edgecolor=edgecolor,
+        label=label,
+        ax=ax,
+        **hist_kws,
+    )
+
+    observed_label = f"{observed_label} (p = {results['p_value']:.3g})"
+    ax.axvline(observed_statistic, label=observed_label, **line_kws)
+
+    if grid:
+        ax.grid(alpha=0.3)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    if title is None:
+        title = f"p = {results['p_value']:.3g}"
+    ax.set_title(title)
+    if legend:
+        ax.legend()
+
+    fig.tight_layout()
+
+    if return_fig:
+        return fig
+    elif return_ax:
+        return ax
     elif show:
         plt.show()
 

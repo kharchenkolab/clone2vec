@@ -14,7 +14,7 @@ from .embeddings import (
 )
 from .integration import find_mnn, align
 from .associations import associations, graph_associations
-from .eigenvalues import eigenvalue_test
+from .eigenvalues import eigenvalue_test, spectral_permutation_test
 from .catboost import catboost
 
 logg = sc.logging
@@ -33,6 +33,7 @@ __all__ = [
     "clonocluster",
     "graph_associations",
     "eigenvalue_test",
+    "spectral_permutation_test",
     "catboost",
 ]
 

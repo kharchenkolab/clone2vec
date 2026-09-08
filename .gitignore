@@ -41,6 +41,7 @@ nosetests.xml
 
 # --- IDE and Editor Specific ---
 # User-specific settings for various editors
+.claude/
 .idea/
 .vscode/
 *.sublime-project
