@@ -32,7 +32,7 @@ pip install git+https://github.com/kharchenkolab/clone2vec
 
 ## System requirements
 
-`clone2vec` requires Python 3.8 or later with packages listed in [setup.cfg](setup.cfg) file. The package was successfully tested
+`clone2vec` requires Python 3.10 or later with packages listed in [setup.cfg](setup.cfg) file. The package was successfully tested
 on the following systems:
 
 * macOS Sonoma 14.5 (Apple M1 Chip @ 3.20GHz × 8, 16GB RAM) — *MacBook Air M1*,
