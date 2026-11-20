@@ -64,7 +64,7 @@ class _catboost_tqdm:
         self.pbar = None
 
 def _prepare_pools(
-    adata,
+    clones,
     obsm_key: str,
     gs_key: str | None = None,
     validation_key: str | None = None,
@@ -83,22 +83,22 @@ def _prepare_pools(
 
     Parameters
     ----------
-    adata : AnnData
+    clones : AnnData
         AnnData object with cell metadata and embeddings.
     obsm_key : str
-        Key in `adata.obsm` to use as the embedding.
+        Key in `clones.obsm` to use as the embedding.
     gs_key : str | None, optional
-        Key in `adata.uns` to use for group splitting. Default is None.
+        Key in `clones.uns` to use for group splitting. Default is None.
     validation_key : str | None, optional
-        Column in `adata.obs` to use for validation split. Default is None.
+        Column in `clones.obs` to use for validation split. Default is None.
     validation_value : str | None, optional
         Value in `validation_key` to use for validation split. Default is None.
     features : list[str] | None, optional
         List of features to use as predictors. Default is None.
     use_raw : bool | None, optional
-        Whether to use `adata.raw` for feature selection. Default is None.
+        Whether to use `clones.raw` for feature selection. Default is None.
     layer : str | None, optional
-        Layer in `adata.layers` to use for feature selection. Default is None.
+        Layer in `clones.layers` to use for feature selection. Default is None.
     response_transform : None | Literal["logit", "log1p", "sqrt"], optional
         Transform to apply to the response variable. Default is None.
     clr_pseudocount : float, optional
@@ -121,26 +121,26 @@ def _prepare_pools(
     if validation_key is None or validation_value is None:
         if gs_key is None:
             try:
-                validation_key = adata.uns["gs"]["obs_key"]
-                validation_value = adata.uns["gs"]["keys"]["validation"]
+                validation_key = clones.uns["gs"]["obs_key"]
+                validation_value = clones.uns["gs"]["keys"]["validation"]
             except:
-                raise ValueError("gs_key not found in adata.uns. Please run c2v.tl.gs() or set validation_key and validation_value.")
+                raise ValueError("gs_key not found in clones.uns. Please run c2v.utils.gs() or set validation_key and validation_value.")
         else:
-            validation_key = adata.uns[gs_key]["obs_key"]
-            validation_value = adata.uns[gs_key]["keys"]["validation"]
-    validation_mask = adata.obs[validation_key] == validation_value
+            validation_key = clones.uns[gs_key]["obs_key"]
+            validation_value = clones.uns[gs_key]["keys"]["validation"]
+    validation_mask = clones.obs[validation_key] == validation_value
     train_mask = ~validation_mask
 
     validation_mask = np.array(validation_mask)
     train_mask = np.array(train_mask)
 
-    if obsm_key not in adata.obsm.keys():
+    if obsm_key not in clones.obsm.keys():
         raise ValueError(f"Key {obsm_key} not found in adata_train.obsm. Please provide a valid key.")
 
-    if adata.obsm[obsm_key].shape[1] > 1:
-        label = adata.obsm[obsm_key]
+    if clones.obsm[obsm_key].shape[1] > 1:
+        label = clones.obsm[obsm_key]
     else:
-        label = adata.obsm[obsm_key].flatten()
+        label = clones.obsm[obsm_key].flatten()
 
     if isinstance(label, pd.DataFrame):
         label_names = label.columns
@@ -169,25 +169,25 @@ def _prepare_pools(
         response_transform = None
 
     for feature in features:
-        if feature not in adata.obs.columns:
+        if feature not in clones.obs.columns:
             raise ValueError(f"Feature {feature} not found in adata_train.obs. Please provide a valid feature.")
 
     cat_features = []
     for feature in features:
-        if isinstance(adata.obs[feature], pd.CategoricalDtype) or \
-        isinstance(adata.obs[feature], pd.StringDtype) or \
-        pd.api.types.is_object_dtype(adata.obs[feature]):
+        if isinstance(clones.obs[feature], pd.CategoricalDtype) or \
+        isinstance(clones.obs[feature], pd.StringDtype) or \
+        pd.api.types.is_object_dtype(clones.obs[feature]):
             cat_features.append(feature)
 
     if layer:
-        X = adata.layers[layer]
-        var_names = adata.var_names
+        X = clones.layers[layer]
+        var_names = clones.var_names
     elif use_raw:
-        X = adata.raw.X
-        var_names = adata.raw.var_names
+        X = clones.raw.X
+        var_names = clones.raw.var_names
     else:
-        X = adata.X
-        var_names = adata.var_names
+        X = clones.X
+        var_names = clones.var_names
 
     fate_size_train = (label[train_mask] != 0).sum(axis=0)
     fate_size_validation = (label[validation_mask] != 0).sum(axis=0)
@@ -199,43 +199,43 @@ def _prepare_pools(
     if sum(~fates_mask) > 0:
         logg.warning(f"Removing fates with less than {min_size} clones in validation and/or train from the analysis ({', '.join(label_names[~fates_mask])}).")
 
-    if sp.issparse(adata.X):
+    if sp.issparse(clones.X):
         train = pd.DataFrame.sparse.from_spmatrix(
             X[train_mask],
             columns=var_names,
-            index=adata[train_mask].obs.index,
+            index=clones[train_mask].obs.index,
         )
         validation = pd.DataFrame.sparse.from_spmatrix(
             X[validation_mask],
             columns=var_names,
-            index=adata[validation_mask].obs.index,
+            index=clones[validation_mask].obs.index,
         )
         full = pd.DataFrame.sparse.from_spmatrix(
             X,
             columns=var_names,
-            index=adata.obs.index,
+            index=clones.obs.index,
         )
     else:
         train = pd.DataFrame(
             X[train_mask],
             columns=var_names,
-            index=adata[train_mask].obs.index,
+            index=clones[train_mask].obs.index,
         )
         validation = pd.DataFrame(
             X[validation_mask],
             columns=var_names,
-            index=adata[validation_mask].obs.index,
+            index=clones[validation_mask].obs.index,
         )
         full = pd.DataFrame(
             X,
             columns=var_names,
-            index=adata.obs.index,
+            index=clones.obs.index,
         )
 
     for feature in features:
-        train[feature] = adata[train_mask].obs[feature]
-        validation[feature] = adata[validation_mask].obs[feature]
-        full[feature] = adata.obs[feature]
+        train[feature] = clones[train_mask].obs[feature]
+        validation[feature] = clones[validation_mask].obs[feature]
+        full[feature] = clones.obs[feature]
 
     label_train = label[train_mask][:, fates_mask]
     label_validation = label[validation_mask][:, fates_mask]
@@ -260,7 +260,7 @@ def _prepare_pools(
     return full, train, validation, cat_features, validation_mask, fates_mask, loss
 
 def catboost(
-    adata: sc.AnnData,
+    clones: sc.AnnData,
     obsm_key: str,
     gs_key: str | None = None,
     validation_key: str | None = None,
@@ -283,7 +283,7 @@ def catboost(
     save_model: str | os.PathLike | None = None,
     progress_bar: bool = True,
     catboost_dir: os.PathLike | str | None = None,
-    mask_key: str | None | Literal[False] = None,
+    presence_key: str | None | Literal[False] = None,
     clr_pseudocount: float = 1e-3,
     **kwargs,
 ) -> sc.AnnData | tuple[sc.AnnData, CatBoostRegressor | CatBoostClassifier]:
@@ -293,25 +293,25 @@ def catboost(
     
     Parameters
     ----------
-    adata : sc.AnnData
-        Annotated data matrix.
+    clones : sc.AnnData
+        Annotated data matrix at the clone level.
     obsm_key : str
-        Key in `adata.obsm` to use for the response variable.
+        Key in `clones.obsm` to use for the response variable.
     gs_key : str | None, optional
-        Key in `adata.obs` with `c2v.tl.gs()` parameters. Default is None.
+        Key in `clones.obs` with `c2v.utils.gs()` parameters. Default is None.
     validation_key : str | None, optional
-        Key in `adata.obs` to use for the train/validation split. If None, reconstructed from
-        the adata.uns[gs_key]. Default is None.
+        Key in `clones.obs` to use for the train/validation split. If None, reconstructed from
+        the clones.uns[gs_key]. Default is None.
     validation_value : str | None, optional
-        Value in `adata.obs[validation_key]` to use for the validation set. If None,
-        reconstructed from the adata.uns[gs_key]. Default is None.
+        Value in `clones.obs[validation_key]` to use for the validation set. If None,
+        reconstructed from the clones.uns[gs_key]. Default is None.
     features : list[str] | None, optional
-        List of additional adata.obs columns to use for the model (e.g. batch labels, layer names,
+        List of additional clones.obs columns to use for the model (e.g. batch labels, layer names,
         and so on). Default is None.
     use_raw : bool | None, optional
-        Whether to use `adata.raw` for feature selection. Default is None.
+        Whether to use `clones.raw` for feature selection. Default is None.
     layer : str | None, optional
-        Layer in `adata.layers` to use for feature selection. Default is None.
+        Layer in `clones.layers` to use for feature selection. Default is None.
     model : Literal["regressor", "classifier"], optional
         Whether to perform regression or classification. Default is "regressor".
     num_trees : int, optional
@@ -334,7 +334,7 @@ def catboost(
     random_state : int | None, optional
         Random seed for reproducibility. Default is 42.
     prediction_key_added : str, optional
-        Key in `adata.obsm` to add the predicted values. Default is "predicted".
+        Key in `clones.obsm` to add the predicted values. Default is "predicted".
     return_model : bool, optional
         Whether to return the trained model. Default is False.
     save_model : str | os.PathLike | None, optional
@@ -343,8 +343,8 @@ def catboost(
         Whether to show a progress bar during training. Default is True.
     catboost_dir : os.PathLike | str | None, optional
         Directory to save CatBoost training information. Default is None.
-    mask_key : str | None | Literal[False], optional
-        Key in `adata.obs` or `adata.obsm` containing a boolean mask to filter cells, by default None.
+    presence_key : str | None | Literal[False], optional
+        Key in `clones.obs` or `clones.obsm` containing a boolean mask to filter clones, by default None.
     clr_pseudocount : float, optional
         Pseudocount to add to expression values before CLR transformation, by default 1e-3.
 
@@ -353,8 +353,8 @@ def catboost(
 
     Returns
     -------
-    adata : sc.AnnData
-        Annotated data matrix with the predicted values added to `adata.obsm[prediction_key_added]`.
+    clones : sc.AnnData
+        Annotated data matrix with the predicted values added to `clones.obsm[prediction_key_added]`.
     model : CatBoostRegressor | CatBoostClassifier
         Trained CatBoost model.
     """
@@ -380,7 +380,7 @@ def catboost(
     else:
         task_type = "CPU"
 
-    if adata.obsm[obsm_key].shape[1] > 1:
+    if clones.obsm[obsm_key].shape[1] > 1:
         multivariable = True
     else:
         multivariable = False
@@ -407,22 +407,22 @@ def catboost(
     if use_raw and layer:
         logg.warning("use_raw and layer are mutually exclusive. Setting use_raw=False.")
         use_raw = False
-    if use_raw is None and adata.raw:
-        logg.warning("use_raw is None and adata.raw is not None. Setting use_raw=True.")
+    if use_raw is None and clones.raw:
+        logg.warning("use_raw is None and clones.raw is not None. Setting use_raw=True.")
         use_raw = True
 
     if layer:
-        if mask_key is None and "mask_key" in adata.uns.keys():
-            mask_key = adata.uns["mask_key"]
-        if mask_key:
-            mask = adata.obsm[mask_key][layer]
-            mask = mask.values & ~_nan_mask(adata.layers[layer])
+        if presence_key is None and "presence_key" in clones.uns.keys():
+            presence_key = clones.uns["presence_key"]
+        if presence_key:
+            mask = clones.obsm[presence_key][layer]
+            mask = (mask.values > 0) & ~_nan_mask(clones.layers[layer])
         else:
-            mask = ~_nan_mask(adata.layers[layer])
+            mask = ~_nan_mask(clones.layers[layer])
     elif use_raw:
-        mask = ~_nan_mask(adata.raw.X)
+        mask = ~_nan_mask(clones.raw.X)
     else:
-        mask = ~_nan_mask(adata.X)
+        mask = ~_nan_mask(clones.X)
     mask = np.array(mask)
     if sum(~mask) > 0:
         logg.warning(f"{int((~mask).sum())} clones won't be included in the analysis because they consist of missing values.")
@@ -431,7 +431,7 @@ def catboost(
         features = []
 
     full, train, validation, cat_features, validation_mask, fates_mask, loss = _prepare_pools(
-        adata[mask],
+        clones[mask],
         obsm_key=obsm_key,
         gs_key=gs_key,
         validation_key=validation_key,
@@ -477,29 +477,29 @@ def catboost(
 
     logg.info("    model training finished")
 
-    if prediction_key_added in adata.obsm.keys():
-        logg.warning(f"prediction_key_added={prediction_key_added} is already in adata.obsm.keys(). Overwriting.")
+    if prediction_key_added in clones.obsm.keys():
+        logg.warning(f"prediction_key_added={prediction_key_added} is already in clones.obsm.keys(). Overwriting.")
 
     if model == "classifier":
         prediction = cb_model.predict(full, prediction_type="Probability")
     else:
         prediction = cb_model.predict(full)
 
-    if isinstance(adata.obsm[obsm_key], pd.DataFrame):
-        prediction_cols = adata.obsm[obsm_key].columns[fates_mask]
+    if isinstance(clones.obsm[obsm_key], pd.DataFrame):
+        prediction_cols = clones.obsm[obsm_key].columns[fates_mask]
         prediction = pd.DataFrame(
             prediction,
             columns=prediction_cols,
-            index=adata[mask].obs_names,
+            index=clones[mask].obs_names,
         )
-        real = adata[mask].obsm[obsm_key].iloc[:, fates_mask]
-    elif sp.issparse(adata.obsm[obsm_key]):
+        real = clones[mask].obsm[obsm_key].iloc[:, fates_mask]
+    elif sp.issparse(clones.obsm[obsm_key]):
         prediction = sp.csr_matrix(prediction)
         prediction_cols = np.arange(prediction.shape[1]).astype(str)[fates_mask]
-        real = adata[mask].obsm[obsm_key][:, fates_mask]
+        real = clones[mask].obsm[obsm_key][:, fates_mask]
     else:
         prediction_cols = np.arange(prediction.shape[1]).astype(str)[fates_mask]
-        real = adata[mask].obsm[obsm_key][:, fates_mask]
+        real = clones[mask].obsm[obsm_key][:, fates_mask]
 
     logg.info("    computing SHAP")
     raw_shap = cb_model.get_feature_importance(full, type="ShapValues")
@@ -508,7 +508,7 @@ def catboost(
 
     shapdata = sc.AnnData(
         X=sp.csr_matrix(np.linalg.norm(raw_shap, axis=1)),
-        obs=pd.DataFrame(index=adata[mask].obs_names),
+        obs=pd.DataFrame(index=clones[mask].obs_names),
         var=pd.DataFrame(index=np.array(full.get_feature_names())[non_zero_genes]),
     )
 
@@ -537,7 +537,7 @@ def catboost(
     mean_shap = {}
 
     num_features = [i for i in features if i not in cat_features]
-    X_features = shapdata.var_names[shapdata.var_names.isin(adata.var_names)]
+    X_features = shapdata.var_names[shapdata.var_names.isin(clones.var_names)]
 
     logg.info(f"    calculating correlation between SHAP and expression")
     for i, pred_col in enumerate(prediction_cols):
@@ -545,11 +545,11 @@ def catboost(
         mean_shap[pred_col] = np.abs(shapdata.layers[pred_col]).mean(axis=0).A[0]
 
         if layer:
-            X = adata[mask, X_features].layers[layer]
+            X = clones[mask, X_features].layers[layer]
         elif use_raw:
-            X = adata.raw[mask, X_features].X
+            X = clones.raw[mask, X_features].X
         else:
-            X = adata[mask, X_features].X
+            X = clones[mask, X_features].X
 
         X_corr = _fast_corr_cols(
             shapdata[:, X_features].layers[pred_col],
@@ -562,7 +562,7 @@ def catboost(
         if len(num_features) > 0:
             obs_cor = _fast_corr_cols(
                 shapdata[:, num_features].layers[pred_col],
-                adata[mask].obs[num_features].values,
+                clones[mask].obs[num_features].values,
                 significance=False,
                 slope=False,
                 progress_bar=False,

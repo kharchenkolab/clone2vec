@@ -18,14 +18,16 @@ __all__ = [
     "group_scatter",
     "group_kde",
     "loss_history",
-    "spectral_permutation_test",
+    "spectral_test",
+    "moran_test",
+    "spca_test",
     "clone_size",
     "nesting_clones",
     "volcano",
     "shap_volcano",
     "barplot",
     "heatmap",
-    "catboost_perfomance",
+    "catboost_performance",
     "clones2cells",
     "predictors_comparison",
     "graph",
@@ -37,6 +39,7 @@ __all__ = [
     "scatter2vars",
     "pca_loadings",
     "embedding",
+    "de_trend",
 ]
 
 def __dir__():
@@ -116,7 +119,7 @@ def embedding(
 
 def pca_loadings(
     adata: sc.AnnData,
-    key: str = "gPCs",
+    key: str = "sPCs",
     comp: int = 0,
     n_genes: int = 5,
     kind: Literal["h", "v"] = "v",
@@ -177,8 +180,8 @@ def pca_loadings(
             return_ax = True
 
     if title is None:
-        if key == "gPCs":
-            title = f"gPC{comp + 1} loadings"
+        if key == "sPCs":
+            title = f"sPC{comp + 1} loadings"
         elif key == "PCs":
             title = f"PC{comp + 1} loadings"
         else:
@@ -1061,18 +1064,18 @@ def loss_history(
     elif show:
         plt.show()
 
-def spectral_permutation_test(
+def spectral_test(
     clones: sc.AnnData,
-    uns_key: str = "spectral_permutation_test",
+    uns_key: str = "spectral_test",
     bins: int = 10,
     alpha: float = 1,
     edgecolor: str = "black",
-    label: str = "Clonal labels permutations",
+    label: str | None = None,
     observed_label: str = "Observed statistics",
     legend: bool = False,
     title: str | None = None,
     xlabel: str = "Largest eigenvalue",
-    ylabel: str = "Number of permutations",
+    ylabel: str | None = None,
     grid: bool = True,
     show: bool = True,
     figsize: tuple[float, float] | None = None,
@@ -1082,17 +1085,19 @@ def spectral_permutation_test(
     line_kws: dict | None = None,
 ) -> plt.Figure | matplotlib.axes.Axes | None:
     """
-    Plot the permutation null distribution of the leading eigenvalue statistic
-    together with the statistic observed for the real clonal labels.
+    Plot the null distribution of the leading eigenvalue statistic together with the
+    observed statistic: a histogram of the permuted or simulated statistics for the
+    "permutations" and "synthetic" flavors of `c2v.tl.spectral_test`, or the
+    Tracy-Widom density for the "asymptotic" flavor.
 
     Parameters
     ----------
     clones : AnnData
         Annotated data matrix at the clone level containing the results of
-        `c2v.tl.spectral_permutation_test` in `clones.uns`.
+        `c2v.tl.spectral_test` in `clones.uns`.
     uns_key : str, optional
         Key in `clones.uns` that stores the results of the test.
-        Default is "spectral_permutation_test".
+        Default is "spectral_test".
     bins : int, optional
         Number of bins of the null distribution histogram. Default is 10.
     alpha : float, optional
@@ -1100,7 +1105,8 @@ def spectral_permutation_test(
     edgecolor : str, optional
         Color of the histogram bars edges. Default is "black".
     label : str, optional
-        Legend label of the null distribution. Default is "Clonal labels permutations".
+        Legend label of the null distribution, if None, chosen by the flavor of the test.
+        Default is None.
     observed_label : str, optional
         Legend label of the observed statistic. Default is "Observed statistics".
     legend : bool, optional
@@ -1110,7 +1116,7 @@ def spectral_permutation_test(
     xlabel : str, optional
         x-axis label. Default is "Johnstone's statistics".
     ylabel : str, optional
-        y-axis label. Default is "Number of permutations".
+        y-axis label, if None, chosen by the flavor of the test. Default is None.
     grid : bool, optional
         Whether to draw grid lines. Default is True.
     show : bool, optional
@@ -1122,7 +1128,8 @@ def spectral_permutation_test(
     return_fig : bool, optional
         If True, returns the Matplotlib Figure object. Default is False.
     hist_kws : dict | None, optional
-        Keyword arguments for `seaborn.histplot`. Default is None.
+        Keyword arguments for `seaborn.histplot` (or `ax.plot` of the Tracy-Widom
+        density). Default is None.
     line_kws : dict | None, optional
         Keyword arguments for the line of the observed statistic. Default is None.
 
@@ -1141,12 +1148,97 @@ def spectral_permutation_test(
     except KeyError:
         raise KeyError(
             f"uns_key '{uns_key}' not found in clones.uns. "
-            "Did you run `c2v.tl.spectral_permutation_test(adata, clones)` before?"
+            "Did you run `c2v.tl.spectral_test(clones)` before?"
         )
 
-    null_distribution = np.asarray(results["null_distribution"], dtype=float)
     observed_statistic = results["stat"]
+    # results of the former `spectral_permutation_test` have no flavor
+    flavor = results.get("flavor", "permutations")
+    defaults = {
+        "permutations": ("Clonal labels permutations", "Number of permutations"),
+        "synthetic": ("Gaussian simulations", "Number of simulations"),
+        "asymptotic": ("Tracy-Widom distribution", "Density"),
+    }
+    if label is None:
+        label = defaults[flavor][0]
+    if ylabel is None:
+        ylabel = defaults[flavor][1]
 
+    if flavor != "asymptotic":
+        null_distribution = np.asarray(results["null_distribution"], dtype=float)
+        finite = np.isfinite(null_distribution)
+        if not finite.all():
+            logg.warning(f"Skipping {np.sum(~finite)} permutations with a non-finite statistic.")
+            null_distribution = null_distribution[finite]
+
+    if hist_kws is None:
+        hist_kws = {}
+    if line_kws is None:
+        line_kws = {}
+    line_kws.setdefault("color", sns.color_palette()[3])
+    line_kws.setdefault("linestyle", "--")
+
+    if figsize is None:
+        figsize = (4, 3)
+
+    if ax:
+        show = False
+        return_ax = False
+        fig = ax.figure
+    else:
+        fig, ax = plt.subplots(figsize=figsize)
+        if show:
+            return_ax = False
+        else:
+            return_ax = True
+
+    if flavor == "asymptotic":
+        from .permutations import _tracy_widom_cdf
+
+        x = np.linspace(-5, max(5, observed_statistic + 1), 500)
+        density = np.gradient([_tracy_widom_cdf(v) for v in x], x)
+        ax.plot(x, density, label=label, **hist_kws)
+        ax.fill_between(x, density, alpha=0.3)
+    else:
+        sns.histplot(
+            null_distribution,
+            bins=bins,
+            alpha=alpha,
+            edgecolor=edgecolor,
+            label=label,
+            ax=ax,
+            **hist_kws,
+        )
+
+    observed_label = f"{observed_label} (p = {results['p_value']:.3g})"
+    ax.axvline(observed_statistic, label=observed_label, **line_kws)
+
+    if grid:
+        ax.grid(alpha=0.3)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    if title is None:
+        title = f"p = {results['p_value']:.3g}"
+    ax.set_title(title)
+    if legend:
+        ax.legend()
+
+    fig.tight_layout()
+
+    if return_fig:
+        return fig
+    elif return_ax:
+        return ax
+    elif show:
+        plt.show()
+
+def _null_test_plot(
+    null_distribution, observed_statistic, p_value, bins, alpha, edgecolor, label,
+    observed_label, legend, title, xlabel, ylabel, grid, show, figsize, ax, return_fig,
+    hist_kws, line_kws,
+):
+    null_distribution = np.asarray(null_distribution, dtype=float)
     finite = np.isfinite(null_distribution)
     if not finite.all():
         logg.warning(f"Skipping {np.sum(~finite)} permutations with a non-finite statistic.")
@@ -1182,17 +1274,13 @@ def spectral_permutation_test(
         ax=ax,
         **hist_kws,
     )
-
-    observed_label = f"{observed_label} (p = {results['p_value']:.3g})"
+    observed_label = f"{observed_label} (p = {p_value:.3g})"
     ax.axvline(observed_statistic, label=observed_label, **line_kws)
 
     if grid:
         ax.grid(alpha=0.3)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-
-    if title is None:
-        title = f"p = {results['p_value']:.3g}"
     ax.set_title(title)
     if legend:
         ax.legend()
@@ -1205,6 +1293,221 @@ def spectral_permutation_test(
         return ax
     elif show:
         plt.show()
+
+def moran_test(
+    clones: sc.AnnData,
+    gene: str,
+    uns_key: str = "permuted_graph_associations",
+    bins: int = 10,
+    alpha: float = 1,
+    edgecolor: str = "black",
+    label: str = "Clonal labels permutations",
+    observed_label: str = "Observed Moran's I",
+    legend: bool = False,
+    title: str | None = None,
+    xlabel: str = "Moran's I",
+    ylabel: str = "Number of permutations",
+    grid: bool = True,
+    show: bool = True,
+    figsize: tuple[float, float] | None = None,
+    ax: matplotlib.axes.Axes | None = None,
+    return_fig: bool = False,
+    hist_kws: dict | None = None,
+    line_kws: dict | None = None,
+) -> plt.Figure | matplotlib.axes.Axes | None:
+    """
+    Plot the null distribution of Moran's I of a gene under clonal labels permutations
+    calculated by `c2v.tl.permuted_graph_associations` together with the observed Moran's I.
+
+    Parameters
+    ----------
+    clones : AnnData
+        Annotated data matrix at the clone level containing the results of
+        `c2v.tl.graph_associations` and `c2v.tl.permuted_graph_associations`.
+    gene : str
+        Gene to plot, has to be present in `clones.var_names`.
+    uns_key : str, optional
+        Key in `clones.uns` that stores the results of `c2v.tl.permuted_graph_associations`.
+        Default is "permuted_graph_associations".
+    bins : int, optional
+        Number of bins of the null distribution histogram. Default is 10.
+    alpha : float, optional
+        Opacity of the histogram bars. Default is 1.
+    edgecolor : str, optional
+        Color of the histogram bars edges. Default is "black".
+    label : str, optional
+        Legend label of the null distribution. Default is "Clonal labels permutations".
+    observed_label : str, optional
+        Legend label of the observed statistic. Default is "Observed Moran's I".
+    legend : bool, optional
+        Whether to draw the legend. Default is False.
+    title : str | None, optional
+        Title of the plot, if None, the gene name and the permutation p-value.
+        Default is None.
+    xlabel : str, optional
+        x-axis label. Default is "Moran's I".
+    ylabel : str, optional
+        y-axis label. Default is "Number of permutations".
+    grid : bool, optional
+        Whether to draw grid lines. Default is True.
+    show : bool, optional
+        Whether to show the plot. Default is True.
+    figsize : tuple[float, float] | None, optional
+        Figure size. Default is None.
+    ax : matplotlib.axes.Axes | None, optional
+        Axes to plot on. Default is None.
+    return_fig : bool, optional
+        If True, returns the Matplotlib Figure object. Default is False.
+    hist_kws : dict | None, optional
+        Keyword arguments for `seaborn.histplot`. Default is None.
+    line_kws : dict | None, optional
+        Keyword arguments for the line of the observed statistic. Default is None.
+
+    Returns
+    -------
+    None or matplotlib.figure.Figure or matplotlib.axes.Axes
+        The plot figure if `return_fig` is True, or axes if `show` is False, otherwise None.
+
+    Raises
+    -------
+    KeyError
+        If `uns_key` is not present in `clones.uns` or `gene` is not present in `clones.var_names`.
+    """
+    try:
+        results = clones.uns[uns_key]
+    except KeyError:
+        raise KeyError(
+            f"uns_key '{uns_key}' not found in clones.uns. "
+            "Did you run `c2v.tl.permuted_graph_associations(adata, clones)` before?"
+        )
+    if gene not in clones.var_names:
+        raise KeyError(f"gene '{gene}' not found in clones.var_names.")
+
+    p_value = clones.var.loc[gene, "perm_pval"]
+    if title is None:
+        title = f"{gene}, p = {p_value:.3g}"
+
+    return _null_test_plot(
+        results["null_distribution"].loc[gene].values, clones.var.loc[gene, "morans_i"],
+        p_value, bins, alpha, edgecolor, label, observed_label, legend, title, xlabel,
+        ylabel, grid, show, figsize, ax, return_fig, hist_kws, line_kws,
+    )
+
+def spca_test(
+    clones: sc.AnnData,
+    component: int = 1,
+    against: Literal["same", "first"] = "same",
+    uns_key: str = "permuted_graph_associations",
+    bins: int = 10,
+    alpha: float = 1,
+    edgecolor: str = "black",
+    label: str = "Clonal labels permutations",
+    observed_label: str = "Observed eigenvalue",
+    legend: bool = False,
+    title: str | None = None,
+    xlabel: str = "Scaled sPCA eigenvalue",
+    ylabel: str = "Number of permutations",
+    grid: bool = True,
+    show: bool = True,
+    figsize: tuple[float, float] | None = None,
+    ax: matplotlib.axes.Axes | None = None,
+    return_fig: bool = False,
+    hist_kws: dict | None = None,
+    line_kws: dict | None = None,
+) -> plt.Figure | matplotlib.axes.Axes | None:
+    """
+    Plot the null distribution of the scaled sPCA eigenvalue of an sPC (`varexpl` multiplied
+    by N / sum(W), i.e. Moran's I of the sPC scores times the fraction of variance they carry)
+    under clonal labels permutations calculated by `c2v.tl.permuted_graph_associations`
+    together with the observed one.
+
+    Parameters
+    ----------
+    clones : AnnData
+        Annotated data matrix at the clone level containing the results of
+        `c2v.tl.graph_associations` and `c2v.tl.permuted_graph_associations`.
+    component : int, optional
+        Number of the sPC to plot (1-based). Default is 1.
+    against : Literal["same", "first"], optional
+        Null distribution to compare with: "same" – the eigenvalue of the same rank under
+        permutations, "first" – the leading eigenvalue under permutations (variance explained
+        by sPC_1 without clonal structure). Default is "same".
+    uns_key : str, optional
+        Key in `clones.uns` that stores the results of `c2v.tl.permuted_graph_associations`.
+        Default is "permuted_graph_associations".
+    bins : int, optional
+        Number of bins of the null distribution histogram. Default is 10.
+    alpha : float, optional
+        Opacity of the histogram bars. Default is 1.
+    edgecolor : str, optional
+        Color of the histogram bars edges. Default is "black".
+    label : str, optional
+        Legend label of the null distribution. Default is "Clonal labels permutations".
+    observed_label : str, optional
+        Legend label of the observed statistic. Default is "Observed eigenvalue".
+    legend : bool, optional
+        Whether to draw the legend. Default is False.
+    title : str | None, optional
+        Title of the plot, if None, the sPC name and the permutation p-value.
+        Default is None.
+    xlabel : str, optional
+        x-axis label. Default is "Scaled sPCA eigenvalue".
+    ylabel : str, optional
+        y-axis label. Default is "Number of permutations".
+    grid : bool, optional
+        Whether to draw grid lines. Default is True.
+    show : bool, optional
+        Whether to show the plot. Default is True.
+    figsize : tuple[float, float] | None, optional
+        Figure size. Default is None.
+    ax : matplotlib.axes.Axes | None, optional
+        Axes to plot on. Default is None.
+    return_fig : bool, optional
+        If True, returns the Matplotlib Figure object. Default is False.
+    hist_kws : dict | None, optional
+        Keyword arguments for `seaborn.histplot`. Default is None.
+    line_kws : dict | None, optional
+        Keyword arguments for the line of the observed statistic. Default is None.
+
+    Returns
+    -------
+    None or matplotlib.figure.Figure or matplotlib.axes.Axes
+        The plot figure if `return_fig` is True, or axes if `show` is False, otherwise None.
+
+    Raises
+    -------
+    KeyError
+        If `uns_key` is not present in `clones.uns` or `component` exceeds the number of sPCs.
+    ValueError
+        If `against` is not "same" or "first".
+    """
+    try:
+        results = clones.uns[uns_key]
+    except KeyError:
+        raise KeyError(
+            f"uns_key '{uns_key}' not found in clones.uns. "
+            "Did you run `c2v.tl.permuted_graph_associations(adata, clones)` before?"
+        )
+    pc = f"sPC_{component}"
+    if pc not in results["spca"].index:
+        raise KeyError(f"{pc} not found, {len(results['spca'])} sPCs were tested.")
+    if against == "same":
+        null_distribution = results["spca_null_distribution"].loc[pc].values
+        p_value = results["spca"].loc[pc, "perm_pval"]
+    elif against == "first":
+        null_distribution = results["spca_null_distribution"].loc["sPC_1"].values
+        p_value = results["spca"].loc[pc, "perm_pval_first"]
+    else:
+        raise ValueError("against must be 'same' or 'first'")
+
+    if title is None:
+        title = f"{pc}, p = {p_value:.3g}"
+
+    return _null_test_plot(
+        null_distribution, results["spca"].loc[pc, "eval_norm"], p_value, bins, alpha,
+        edgecolor, label, observed_label, legend, title, xlabel, ylabel, grid, show,
+        figsize, ax, return_fig, hist_kws, line_kws,
+    )
 
 def clone_size(
     clones: sc.AnnData,
@@ -1403,10 +1706,11 @@ def nesting_clones(
         plt.show()
 
 def volcano(
-    pvals: pd.Series | list = None,
-    logfcs: pd.Series | list = None,
+    de_df: pd.DataFrame | None = None,
+    pvals: pd.Series | list | None = None,
+    logfcs: pd.Series | list | None = None,
     names: pd.Series | list | None = None,
-    adj_p: bool = False,
+    adj_p: bool = True,
     lg_p: bool = True,
     ax: matplotlib.axes.Axes | None = None,
     return_fig: bool = False,
@@ -1414,8 +1718,8 @@ def volcano(
     pval_threshold: float | None = 0.05,
     draw_logfc_threshold: bool = True,
     logfc_threshold: float | None = 1.0,
-    n_highlite: int = 5,
-    highlite_names: list | None = None,
+    n_highlight: int = 5,
+    highlight_names: list | None = None,
     background_scatter_kws: dict | None = None,
     lines_kws: dict | None = None,
     scatters_kws: dict | None = None,
@@ -1430,9 +1734,9 @@ def volcano(
     pval_logfc_scatter_kws: dict | None = None,
     pval_logfc_scatter_kws_left: dict | None = None,
     pval_logfc_scatter_kws_right: dict | None = None,
-    highlite_scatter_kws: dict | None = None,
-    highlite_scatter_kws_right: dict | None = None,
-    highlite_scatter_kws_left: dict | None = None,
+    highlight_scatter_kws: dict | None = None,
+    highlight_scatter_kws_right: dict | None = None,
+    highlight_scatter_kws_left: dict | None = None,
     text_kws: dict | None = None,
     text_kws_right: dict | None = None,
     text_kws_left: dict | None = None,
@@ -1451,15 +1755,23 @@ def volcano(
 
     Parameters
     ----------
-    pvals : pd.Series | list
-        P-values for each gene.
-    logfcs : pd.Series | list
-        Log2 fold changes for each gene.
+    de_df : pd.DataFrame | None, optional
+        DataFrame with DE results (`tl.masked_markers`, `sc.get.rank_genes_groups_df` or a
+        table built from `tl.associations` results). Gene names are taken from the "names"
+        column if present, otherwise from the index; effect sizes from the first found of
+        "logfoldchanges", "log2fc", "logfc", "slope", "r"; p-values from "pvals_adj", "p_adj",
+        "padj", "FDR" if `adj_p`, otherwise from "pvals", "pvalue", "pval". Either `de_df` or
+        both `pvals` and `logfcs` must be provided. Default is None.
+    pvals : pd.Series | list | None, optional
+        P-values for each gene. Default is None.
+    logfcs : pd.Series | list | None, optional
+        Log2 fold changes for each gene. Default is None.
     names : pd.Series | list | None, optional
         Gene names corresponding to p-values and logFCs. If None, indices are used (if provided).
         If not provided, no gene names are shown. Default is None.
     adj_p : bool, optional
-        Whether p-values are adjusted (used to label the Y-axis). Default is False.
+        Whether p-values are adjusted (used to label the Y-axis and to pick the p-value
+        column of a DataFrame). Default is True.
     lg_p : bool, optional
         Whether to use -log10(p) scale. If False, the function expects -log10(p) in pvals.
         Default is True.
@@ -1475,9 +1787,9 @@ def volcano(
         Whether to draw the logFC threshold lines. Default is True.
     logfc_threshold : float | None, optional
         Log2 fold change threshold for significance. Default is 1.0.
-    n_highlite : int, optional
+    n_highlight : int, optional
         Number of top genes to highlight from each side. Default is 5.
-    highlite_names : list | None, optional
+    highlight_names : list | None, optional
         List of gene names to highlight in addition to top-DE genes. Default is None.
     background_scatter_kws : dict | None, optional
         Keyword arguments for background (p > pval_threshold and |logFC| < logfc_threshold) scatter plot. Default is None.
@@ -1507,12 +1819,12 @@ def volcano(
         Keyword arguments for p-value and logFC threshold scatter on the left side. Default is None.
     pval_logfc_scatter_kws_right : dict | None, optional
         Keyword arguments for p-value and logFC threshold scatter on the right side. Default is None.
-    highlite_scatter_kws : dict | None, optional
-        Keyword arguments for highlite scatter plot. Default is None.
-    highlite_scatter_kws_right : dict | None, optional
-        Keyword arguments for highlite scatter plot on the right side. Default is None.
-    highlite_scatter_kws_left : dict | None, optional
-        Keyword arguments for highlite scatter plot on the left side. Default is None.
+    highlight_scatter_kws : dict | None, optional
+        Keyword arguments for highlight scatter plot. Default is None.
+    highlight_scatter_kws_right : dict | None, optional
+        Keyword arguments for highlight scatter plot on the right side. Default is None.
+    highlight_scatter_kws_left : dict | None, optional
+        Keyword arguments for highlight scatter plot on the left side. Default is None.
     text_kws : dict | None, optional
         Keyword arguments for text. Default is None.
     text_kws_right : dict | None, optional
@@ -1561,10 +1873,36 @@ def volcano(
                 d[key] = defaults[key]
         return d
 
+    if de_df is not None and (pvals is not None or logfcs is not None or names is not None):
+        raise ValueError("Provide either `de_df` or `pvals`/`logfcs`/`names`, not both.")
+    if de_df is None and (pvals is None or logfcs is None):
+        raise ValueError("Provide either `de_df` or both `pvals` and `logfcs`.")
+
+    if de_df is not None:
+        data = de_df
+        if "group" in data.columns and data["group"].nunique() > 1:
+            raise ValueError(
+                "DataFrame contains several groups in 'group' column. Select one group first, "
+                "e.g. `sc.get.rank_genes_groups_df(adata, group=...)`."
+            )
+        p_candidates = ["pvals_adj", "p_adj", "padj", "FDR"] if adj_p else ["pvals", "pvalue", "pval"]
+        fc_candidates = ["logfoldchanges", "log2fc", "logfc", "slope", "r"]
+        p_col = next((c for c in p_candidates if c in data.columns), None)
+        fc_col = next((c for c in fc_candidates if c in data.columns), None)
+        if p_col is None:
+            raise KeyError(f"No p-value column found in DataFrame, expected one of {p_candidates}.")
+        if fc_col is None:
+            raise KeyError(f"No effect size column found in DataFrame, expected one of {fc_candidates}.")
+        if xlabel is None and fc_col in ("slope", "r"):
+            xlabel = "Slope" if fc_col == "slope" else "Correlation"
+        names = data["names"].astype(str).values if "names" in data.columns else data.index.astype(str).values
+        logfcs = data[fc_col].values
+        pvals = data[p_col].values
+
     if names is None and not (isinstance(pvals, pd.Series) or isinstance(logfcs, pd.Series)):
         logg.warning("If `names` is None, `pvals` and `logfcs` must be pd.Series. Gene names won't be displayed.")
-        highlite_names = None
-        n_highlite = 0
+        highlight_names = None
+        n_highlight = 0
 
         df = pd.DataFrame({"log2fc": logfcs, "p": pvals})
     elif names is None and (isinstance(pvals, pd.Series) or isinstance(logfcs, pd.Series)):
@@ -1723,156 +2061,156 @@ def volcano(
     )
     
     # Highliting genes
-    if highlite_names:
+    if highlight_names:
         # Checking type
-        if isinstance(highlite_names, str):
-            highlite_names = [highlite_names]
-        if not isinstance(highlite_names, (list, tuple, pd.Series)):
+        if isinstance(highlight_names, str):
+            highlight_names = [highlight_names]
+        if not isinstance(highlight_names, (list, tuple, pd.Series)):
             logg.warning(
-                "highlite_names must be a list, tuple, or pandas Series."
+                "highlight_names must be a list, tuple, or pandas Series."
             )
-            highlite_names = []
+            highlight_names = []
     else:
-        highlite_names = []
+        highlight_names = []
     gene_not_found = []
-    for gene in highlite_names:
+    for gene in highlight_names:
         if gene not in df.index:
             gene_not_found.append(gene)
     if len(gene_not_found) > 0:
         logg.warning(
             f"Following genes were not found in the dataframe: {gene_not_found}"
         )
-    highlite_names = pd.Series(highlite_names)
+    highlight_names = pd.Series(highlight_names)
 
-    left_highlite_names = list(
-        df_signi_left.sort_values("-log10p", ascending=False).index[:n_highlite]
+    left_highlight_names = list(
+        df_signi_left.sort_values("-log10p", ascending=False).index[:n_highlight]
     )
-    left_highlite_names += list(
-        highlite_names[highlite_names.isin(df[df.log2fc < 0].index)]
+    left_highlight_names += list(
+        highlight_names[highlight_names.isin(df[df.log2fc < 0].index)]
     )
 
-    left_highlite_names = np.array(left_highlite_names)
+    left_highlight_names = np.array(left_highlight_names)
     dropped_genes = []
     if xlim:
         if xlim[0]:
-            out_of_field = (df.loc[left_highlite_names, "log2fc"] < xlim[0]).values
+            out_of_field = (df.loc[left_highlight_names, "log2fc"] < xlim[0]).values
             if sum(out_of_field) > 0:
-                dropped_genes += list(left_highlite_names[out_of_field])
-                left_highlite_names = left_highlite_names[~out_of_field]
+                dropped_genes += list(left_highlight_names[out_of_field])
+                left_highlight_names = left_highlight_names[~out_of_field]
 
     if ylim:
         if ylim[0]:
-            out_of_field = (df.loc[left_highlite_names, "-log10p"] < ylim[0]).values
+            out_of_field = (df.loc[left_highlight_names, "-log10p"] < ylim[0]).values
             if sum(out_of_field) > 0:
-                dropped_genes += list(left_highlite_names[out_of_field])
-                left_highlite_names = left_highlite_names[~out_of_field]
+                dropped_genes += list(left_highlight_names[out_of_field])
+                left_highlight_names = left_highlight_names[~out_of_field]
         if ylim[1]:
-            out_of_field = (df.loc[left_highlite_names, "-log10p"] > ylim[1]).values
+            out_of_field = (df.loc[left_highlight_names, "-log10p"] > ylim[1]).values
             if sum(out_of_field) > 0:
-                dropped_genes += list(left_highlite_names[out_of_field])
-                left_highlite_names = left_highlite_names[~out_of_field]
+                dropped_genes += list(left_highlight_names[out_of_field])
+                left_highlight_names = left_highlight_names[~out_of_field]
 
-    right_highlite_names = list(
-        df_signi_right.sort_values("-log10p", ascending=False).index[:n_highlite]
+    right_highlight_names = list(
+        df_signi_right.sort_values("-log10p", ascending=False).index[:n_highlight]
     )
-    right_highlite_names += list(
-        highlite_names[highlite_names.isin(df[df.log2fc > 0].index)]
+    right_highlight_names += list(
+        highlight_names[highlight_names.isin(df[df.log2fc > 0].index)]
     )
 
-    right_highlite_names = np.array(right_highlite_names)
+    right_highlight_names = np.array(right_highlight_names)
     if xlim:
         if xlim[1]:
-            out_of_field = (df.loc[right_highlite_names, "log2fc"] > xlim[1]).values
+            out_of_field = (df.loc[right_highlight_names, "log2fc"] > xlim[1]).values
             if sum(out_of_field) > 0:
-                dropped_genes += list(right_highlite_names[out_of_field])
-                right_highlite_names = right_highlite_names[~out_of_field]
+                dropped_genes += list(right_highlight_names[out_of_field])
+                right_highlight_names = right_highlight_names[~out_of_field]
 
     if ylim:
         if ylim[0]:
-            out_of_field = (df.loc[right_highlite_names, "-log10p"] < ylim[0]).values
+            out_of_field = (df.loc[right_highlight_names, "-log10p"] < ylim[0]).values
             if sum(out_of_field) > 0:
-                dropped_genes += list(right_highlite_names[out_of_field])
-                right_highlite_names = right_highlite_names[~out_of_field]
+                dropped_genes += list(right_highlight_names[out_of_field])
+                right_highlight_names = right_highlight_names[~out_of_field]
         if ylim[1]:
-            out_of_field = (df.loc[right_highlite_names, "-log10p"] > ylim[1]).values   
+            out_of_field = (df.loc[right_highlight_names, "-log10p"] > ylim[1]).values   
             if sum(out_of_field) > 0:
-                dropped_genes += list(right_highlite_names[out_of_field])
-                right_highlite_names = right_highlite_names[~out_of_field]
+                dropped_genes += list(right_highlight_names[out_of_field])
+                right_highlight_names = right_highlight_names[~out_of_field]
 
     if len(dropped_genes) > 0:
         logg.warning(
             f"Following genes are out of the plot area: {dropped_genes}"
         )
 
-    highlite_scatter_kws = _fill_defaults(
-        highlite_scatter_kws, **scatters_kws
+    highlight_scatter_kws = _fill_defaults(
+        highlight_scatter_kws, **scatters_kws
     )
-    highlite_scatter_kws_left = _fill_defaults(
-        highlite_scatter_kws_left, **highlite_scatter_kws
-    )
-
-    increase_s = False
-    add_edgecolor = False
-    add_linewidth = False
-    if "s" not in highlite_scatter_kws_left:
-        increase_s = True
-    if "edgecolor" not in highlite_scatter_kws_left:
-        add_edgecolor = True
-    if "linewidth" not in highlite_scatter_kws_left:
-        add_linewidth = True
-
-    highlite_scatter_kws_left = _fill_defaults(
-        highlite_scatter_kws_left, **pval_logfc_scatter_kws_left
-    )
-    if increase_s:
-        highlite_scatter_kws_left["s"] += 10
-    if add_linewidth:
-        highlite_scatter_kws_left["linewidth"] = 0.5
-    if add_edgecolor:
-        highlite_scatter_kws_left["edgecolor"] = "black"
-
-    left_highlite_names = list(set(left_highlite_names))
-    sns.scatterplot(
-        x="log2fc",
-        y="-log10p",
-        data=df.loc[left_highlite_names],
-        ax=ax,
-        zorder=1,
-        **highlite_scatter_kws_left,
-    )
-
-    highlite_scatter_kws_right = _fill_defaults(
-        highlite_scatter_kws_right, **highlite_scatter_kws
+    highlight_scatter_kws_left = _fill_defaults(
+        highlight_scatter_kws_left, **highlight_scatter_kws
     )
 
     increase_s = False
     add_edgecolor = False
     add_linewidth = False
-    if "s" not in highlite_scatter_kws_right:
+    if "s" not in highlight_scatter_kws_left:
         increase_s = True
-    if "edgecolor" not in highlite_scatter_kws_right:
+    if "edgecolor" not in highlight_scatter_kws_left:
         add_edgecolor = True
-    if "linewidth" not in highlite_scatter_kws_right:
+    if "linewidth" not in highlight_scatter_kws_left:
         add_linewidth = True
 
-    highlite_scatter_kws_right = _fill_defaults(
-        highlite_scatter_kws_right, **pval_logfc_scatter_kws_right
+    highlight_scatter_kws_left = _fill_defaults(
+        highlight_scatter_kws_left, **pval_logfc_scatter_kws_left
     )
     if increase_s:
-        highlite_scatter_kws_right["s"] += 10
+        highlight_scatter_kws_left["s"] += 10
     if add_linewidth:
-        highlite_scatter_kws_right["linewidth"] = 0.5
+        highlight_scatter_kws_left["linewidth"] = 0.5
     if add_edgecolor:
-        highlite_scatter_kws_right["edgecolor"] = "black"
+        highlight_scatter_kws_left["edgecolor"] = "black"
 
-    right_highlite_names = list(set(right_highlite_names))
+    left_highlight_names = list(set(left_highlight_names))
     sns.scatterplot(
         x="log2fc",
         y="-log10p",
-        data=df.loc[right_highlite_names],
+        data=df.loc[left_highlight_names],
         ax=ax,
         zorder=1,
-        **highlite_scatter_kws_right,
+        **highlight_scatter_kws_left,
+    )
+
+    highlight_scatter_kws_right = _fill_defaults(
+        highlight_scatter_kws_right, **highlight_scatter_kws
+    )
+
+    increase_s = False
+    add_edgecolor = False
+    add_linewidth = False
+    if "s" not in highlight_scatter_kws_right:
+        increase_s = True
+    if "edgecolor" not in highlight_scatter_kws_right:
+        add_edgecolor = True
+    if "linewidth" not in highlight_scatter_kws_right:
+        add_linewidth = True
+
+    highlight_scatter_kws_right = _fill_defaults(
+        highlight_scatter_kws_right, **pval_logfc_scatter_kws_right
+    )
+    if increase_s:
+        highlight_scatter_kws_right["s"] += 10
+    if add_linewidth:
+        highlight_scatter_kws_right["linewidth"] = 0.5
+    if add_edgecolor:
+        highlight_scatter_kws_right["edgecolor"] = "black"
+
+    right_highlight_names = list(set(right_highlight_names))
+    sns.scatterplot(
+        x="log2fc",
+        y="-log10p",
+        data=df.loc[right_highlight_names],
+        ax=ax,
+        zorder=1,
+        **highlight_scatter_kws_right,
     )
 
     if xlim is None:
@@ -1930,7 +2268,7 @@ def volcano(
         linecolor="k",
         avoid_crossing_label_lines=True,
         avoid_label_lines_overlap=True,
-        textcolor=highlite_scatter_kws_left.get("color", "black"),
+        textcolor=highlight_scatter_kws_left.get("color", "black"),
         fontstyle="italic",
         max_distance=0.3,
         bbox=dict(
@@ -1948,7 +2286,7 @@ def volcano(
         linewidth=0.5,
         avoid_crossing_label_lines=True,
         avoid_label_lines_overlap=True,
-        textcolor=highlite_scatter_kws_right.get("color", "black"),
+        textcolor=highlight_scatter_kws_right.get("color", "black"),
         fontstyle="italic",
         max_distance=0.3,
         bbox=dict(
@@ -1959,14 +2297,14 @@ def volcano(
         ),
     )
 
-    if len(left_highlite_names) > 0:
+    if len(left_highlight_names) > 0:
         # `textalloc` indexes its inputs positionally, which pandas no longer
         # supports for Series with a non-integer index, so pass plain arrays.
         ta.allocate(
             ax,
-            x=df.loc[left_highlite_names, "log2fc"].to_numpy(),
-            y=df.loc[left_highlite_names, "-log10p"].to_numpy(),
-            text_list=list(left_highlite_names),
+            x=df.loc[left_highlight_names, "log2fc"].to_numpy(),
+            y=df.loc[left_highlight_names, "-log10p"].to_numpy(),
+            text_list=list(left_highlight_names),
             x_scatter=df["log2fc"].to_numpy(),
             y_scatter=df["-log10p"].to_numpy(),
             x_lines=xlines,
@@ -1974,14 +2312,14 @@ def volcano(
             **text_kws_left,
         )
 
-    if len(right_highlite_names) > 0:
+    if len(right_highlight_names) > 0:
         # `textalloc` indexes its inputs positionally, which pandas no longer
         # supports for Series with a non-integer index, so pass plain arrays.
         ta.allocate(
             ax,
-            x=df.loc[right_highlite_names, "log2fc"].to_numpy(),
-            y=df.loc[right_highlite_names, "-log10p"].to_numpy(),
-            text_list=list(right_highlite_names),
+            x=df.loc[right_highlight_names, "log2fc"].to_numpy(),
+            y=df.loc[right_highlight_names, "-log10p"].to_numpy(),
+            text_list=list(right_highlight_names),
             x_scatter=df["log2fc"].to_numpy(),
             y_scatter=df["-log10p"].to_numpy(),
             x_lines=xlines,
@@ -2012,7 +2350,7 @@ def volcano(
         plt.show()
 
 def shap_volcano(
-    shapdata: AnnData,
+    shapdata: sc.AnnData,
     layer: str,
     min_corr: float = 0.5,
     xlabel: str = "corr(SHAP, Expr)",
@@ -2329,6 +2667,7 @@ def heatmap(
     cbar_pad: float = 0.025,
     cmap_border: float = 1.,
     cbar_title: str = "",
+    centered_cbar: bool = True,
     ax: plt.Axes | None = None,
     x_rotation: float = 0.,
     y_rotation: float = 0.,
@@ -2371,6 +2710,9 @@ def heatmap(
         Width of the border around the colormap. Default is 1.
     cbar_title : str, optional
         Title of the colorbar. Default is "".
+    centered_cbar : bool, optional
+        Whether to make the color scale symmetric around zero with
+        `vmax = -vmin = max(|data|)`. Ignored if `vmin` or `vmax` is passed. Default is True.
     ax : plt.Axes | None, optional
         Axes object to draw the heatmap on. Default is None.
     x_rotation : float, optional
@@ -2407,6 +2749,7 @@ def heatmap(
     """
 
     import matplotlib.patches as patches
+    from scipy.cluster.hierarchy import linkage, leaves_list
 
     if figsize is None:
         figsize = (6, 6)
@@ -2423,7 +2766,6 @@ def heatmap(
             return_ax = True
 
     if sort_columns:
-        from scipy.cluster.hierarchy import linkage, leaves_list
         Z = linkage(df.T.values, method=linkage_method, metric=linkage_metric)
         order = leaves_list(Z)
         data = df.iloc[:, order]
@@ -2434,6 +2776,10 @@ def heatmap(
         Z = linkage(data.values, method=linkage_method, metric=linkage_metric)
         order = leaves_list(Z)
         data = data.iloc[order, :]
+
+    if centered_cbar and "vmin" not in kwargs and "vmax" not in kwargs:
+        vlim = np.nanmax(np.abs(data.values))
+        kwargs["vmin"], kwargs["vmax"] = -vlim, vlim
 
     hm = sns.heatmap(
         data,
@@ -2602,7 +2948,7 @@ def _prepare_c2c(
         
     return df, cmap
 
-def catboost_perfomance(
+def catboost_performance(
     shapdata: sc.AnnData,
     var_names: str | list[str] | None = None,
     set_type: Literal["train", "validation"] = "validation",
@@ -2655,7 +3001,7 @@ def catboost_perfomance(
     """
 
     import scipy.sparse as sp
-    from .associations import _fast_corr
+    from .associations import fast_corr
 
     if "catboost_info" not in shapdata.uns.keys():
         raise ValueError("catboost_info not found in shapdata.uns. Please, run `c2v.tl.catboost()` first.")
@@ -2764,7 +3110,7 @@ def catboost_perfomance(
             idx = fates_used.index(v)
             y = subset.obsm[pred_key][:, idx]
 
-        corr = _fast_corr(x, y, slope=True, significance=False, progress_bar=False)["r"][0][0]
+        corr = fast_corr(x, y, slope=True, significance=False, progress_bar=False)["r"][0][0]
 
         current_line_kws = line_kws[i]
         current_scatter_kws = scatter_kws[i]
@@ -2817,7 +3163,7 @@ def clones2cells(
     obs_name: str | None = None,
     cells_color: str | None = None,
     clones_color: str | None = None,
-    mode: Literal["highlite", "filter"] = "highlite",
+    mode: Literal["highlight", "filter"] = "highlight",
     cells_basis: str = "X_umap",
     clones_basis: str = "X_umap",
     keep_color: bool = False,
@@ -2838,7 +3184,7 @@ def clones2cells(
 ) -> None:
     """
     Draws two interactive sctterplots with gene expression (left) and clonal (right) embeddings.
-    Selection on the right plot leads to the highliting (`mode='highlite'`) or filtering (`mode='filter'`)
+    Selection on the right plot leads to the highliting (`mode='highlight'`) or filtering (`mode='filter'`)
     of cells from the corresponding clones. Selection on the left plot leads to coloring the right plot
     by the proportion of selected cells in clones.
 
@@ -2857,19 +3203,19 @@ def clones2cells(
     clones_color : str, optional
         Name of column in `clones.obs` with clones colors. If not provided,
         clones will be colored in `bg_color`.
-    mode : {"highlite", "filter"}, optional
-        Whether to highlite (`mode='highlite'`) or filter (`mode='filter'`) cells
+    mode : {"highlight", "filter"}, optional
+        Whether to highlight (`mode='highlight'`) or filter (`mode='filter'`) cells
         from the selected clones.
     cells_basis : str, optional
         Name of key in `adata.obsm` with cells embeddings.
     clones_basis : str, optional
         Name of key in `clones.obsm` with clonal embeddings.
     keep_color : bool, optional
-        Whether to keep color of cells in `cells_color` for `mode='highlite'`.
+        Whether to keep color of cells in `cells_color` for `mode='highlight'`.
     bg_color : str, optional
         Color of unselected cells or clones.
     selected_color : str, optional
-        Color of selected cells if `mode='highlite'` and `keep_color=False`.
+        Color of selected cells if `mode='highlight'` and `keep_color=False`.
     cells_cmap : str, optional
         Continuous color map for cells.
     clones_cmap : str, optional
@@ -2904,6 +3250,7 @@ def clones2cells(
     try:
         import ipywidgets as widgets
         import jscatter as js
+        from IPython.display import display
     except ImportError:
         raise ImportError("`ipywidgets` and `jscatter` are required for clones2cells. Please install them via pip: `pip install ipywidgets jscatter`.")
 
@@ -2934,21 +3281,21 @@ def clones2cells(
     if cmap_clones:
         df_clones = df_clones.sort_values("c")
 
-    if cmap_gex and (type(cmap_gex) != dict) and (mode == "highlite"):
+    if cmap_gex and (type(cmap_gex) != dict) and (mode == "highlight"):
         if keep_color:
-            logg.warning("`keep_color=True` isn't supported in `mode='highlite'`. Switching to `keep_color=False`")
+            logg.warning("`keep_color=True` isn't supported in `mode='highlight'`. Switching to `keep_color=False`")
             keep_color = False
         cat_gex = False
     else:
         cat_gex = True
 
-    if (mode == "highlite") and (cmap_gex is None):
+    if (mode == "highlight") and (cmap_gex is None):
         keep_color = False
 
     clones_whitelist = df_clones["clone"].values
     clone_sizes = df_gex["clone"].value_counts()[clones_whitelist]
 
-    if mode == "highlite":
+    if mode == "highlight":
         in_clones = df_gex.clone.isin(clones_whitelist).values
         
         bg_mask = np.array([True] * len(df_gex) + [False] * sum(in_clones))
@@ -3744,6 +4091,120 @@ def scatter2vars(
         return ax
     elif show:
         plt.show()
+
+
+def de_trend(
+    clones: sc.AnnData,
+    genes: str | list[str],
+    groupby: str,
+    reference: str | list[str],
+    test: str | list[str],
+    masked_embedding: str = "clone2vec_mask",
+    n_neighbors: int = 10,
+    keep_clones: Literal["exact", "similar"] = "exact",
+    ncols: int = 4,
+    s: float = 20,
+    alpha: float = 0.7,
+    colors: tuple[str, str, str] = ("#1f77b4", "#d62728", "lightgrey"),
+    figsize: tuple[float, float] | None = None,
+    show: bool = True,
+    return_fig: bool = False,
+) -> plt.Figure | np.ndarray | None:
+    """
+    Diagnostic plot for `tl.masked_markers`: clone-level expression of genes against the
+    neighbourhood score `(n_test - n_reference) / (2 * n_neighbors)` along the masked clonal
+    embedding, with the linear regression line (the trend tested by `method="regression"`) and its
+    log2 fold change (`logfoldchanges` of `tl.masked_markers`) in the panel title.
+
+    Parameters
+    ----------
+    clones : sc.AnnData
+        Clone-level AnnData with expression in `.X` and the masked embedding in `.obsm`.
+    genes : str | list[str]
+        Gene(s) in `clones.var_names` to plot, one panel per gene.
+    groupby : str
+        Column in `clones.obs` with clone groups.
+    reference : str | list[str]
+        Reference group(s); must not overlap with `test`.
+    test : str | list[str]
+        Test group(s); must not overlap with `reference`.
+    masked_embedding : str, optional
+        Key in `clones.obsm` with the embedding from `tl.mask_heterogeneity`, by default "clone2vec_mask".
+    n_neighbors : int, optional
+        Number of neighbours in the kNN graph, by default 10.
+    keep_clones : Literal["exact", "similar"], optional
+        "exact": only clones from `reference` and `test` are shown; "similar": clones with at
+        least one `reference` or `test` clone among neighbours are shown too. By default "exact".
+    ncols : int, optional
+        Number of panels per row, by default 4.
+    s : float, optional
+        Size of points, by default 20.
+    alpha : float, optional
+        Transparency of points, by default 0.7.
+    colors : tuple[str, str, str], optional
+        Colors of reference, test and neighbouring clones, by default ("#1f77b4", "#d62728", "lightgrey").
+    figsize : tuple[float, float] | None, optional
+        Figure size, by default (3.5 * ncols, 3 * nrows).
+    show : bool, optional
+        Whether to show the plot, by default True.
+    return_fig : bool, optional
+        Whether to return the figure, by default False.
+
+    Returns
+    -------
+    plt.Figure | np.ndarray | None
+        Figure if `return_fig`, array of axes if `show` is False, otherwise None.
+    """
+    from .associations import _masked_score
+
+    genes = [genes] if isinstance(genes, str) else list(genes)
+    missing = [g for g in genes if g not in clones.var_names]
+    if missing:
+        raise KeyError(f"Genes {missing} not found in clones.var_names.")
+    reference = [str(reference)] if isinstance(reference, (str, int)) else [str(g) for g in reference]
+    test = [str(test)] if isinstance(test, (str, int)) else [str(g) for g in test]
+
+    d, keep, is_test, is_ref = _masked_score(
+        clones, groupby, reference, test, masked_embedding, n_neighbors, keep_clones
+    )
+    Y = clones[keep, genes].X
+    Y = np.asarray(Y.toarray() if sp.issparse(Y) else Y, dtype=float)
+    groups = [
+        (~is_test[keep] & ~is_ref[keep], colors[2], "neighbouring"),
+        (is_ref[keep], colors[0], ", ".join(reference)),
+        (is_test[keep], colors[1], ", ".join(test)),
+    ]
+
+    ncols = min(ncols, len(genes))
+    nrows = int(np.ceil(len(genes) / ncols))
+    if figsize is None:
+        figsize = (3.5 * ncols, 3 * nrows)
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize, squeeze=False)
+    axes = axes.ravel()
+    x = np.array([d.min(), d.max()])
+    for ax, gene, y in zip(axes, genes, Y.T):
+        for mask, color, label in groups:
+            if mask.any():
+                ax.scatter(d[mask], y[mask], s=s, c=color, alpha=alpha, edgecolor="none", label=label)
+        slope, intercept = np.polyfit(d, y, 1)
+        ax.plot(x, intercept + slope * x, c="black", lw=1.5)
+        ax.set_title(f"{gene} (log2FC {slope / np.log(2):.2g})")
+        ax.set_xlabel("Neighborhood score")
+        ax.set_ylabel("Expression")
+        ax.grid(alpha=0.3)
+    for ax in axes[len(genes):]:
+        ax.set_visible(False)
+    axes[len(genes) - 1].legend(
+        *axes[0].get_legend_handles_labels(),
+        frameon=False, fontsize=8, loc="center left", bbox_to_anchor=(1.02, 0.5),
+    )
+    fig.tight_layout()
+
+    if return_fig:
+        return fig
+    if not show:
+        return axes
+    plt.show()
 
 
 Reds = _cmap("Reds")

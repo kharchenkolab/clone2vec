@@ -16,6 +16,9 @@ from tqdm import tqdm
 
 logg = sc.logging
 
+# indent of progress bars; deepened by wrapper functions (e.g. `tl.mask_heterogeneity`) that run these as sub-tasks
+_progress_indent = "    "
+
 def _create_pairs(X: np.ndarray | sp.spmatrix) -> list[tuple[int, int]]:
     """
     Creates a list of pairs (row, col) from a sparse or dense count matrix X.
@@ -281,7 +284,7 @@ class SkipGram(nn.Module):
         criterion = nn.NLLLoss()
 
         if sc.settings.verbosity.value >= 2:
-            prefix = "    "
+            prefix = _progress_indent
             progress_bar = True
         else:
             prefix = ""
@@ -773,7 +776,7 @@ def clone2vec_Poi(
     start_time = time.time()
 
     if sc.settings.verbosity.value >= 2:
-        prefix = "    "
+        prefix = _progress_indent
         progress_bar = True
     else:
         prefix = ""

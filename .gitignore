@@ -70,6 +70,7 @@ config.local.ini
 # --- Docs Build Artifacts ---
 docs/build/
 docs/source/API/
+docs/source/data/
 
 # --- Jupyter Notebook Checkpoints ---
 .ipynb_checkpoints/

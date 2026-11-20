@@ -13,6 +13,7 @@ Datasets
    datasets.Weinreb_in_vitro
    datasets.Erickson_murine_development
    datasets.Liu_NSCLC_CD8
+   datasets.Ireland_SCLC
 
 Preprocessing
 -------------
@@ -35,6 +36,7 @@ Tools
    :nosignatures:
 
    tl.clonal_nn
+   tl.mask_heterogeneity
    tl.clonocluster
    tl.smooth
    tl.group_connectivity
@@ -61,9 +63,14 @@ Associations
    :nosignatures:
 
    tl.associations
+   tl.fast_corr
+   tl.masked_markers
    tl.graph_associations
-   tl.eigenvalue_test
-   tl.spectral_permutation_test
+   tl.moran
+   tl.spca
+   tl.permute_embeddings
+   tl.spectral_test
+   tl.permuted_graph_associations
    tl.catboost
 
 Utils
@@ -77,6 +84,7 @@ Utils
    utils.correct_shap
    utils.connect_clones
    utils.permute_clones
+   utils.unpack_permutations
    utils.get_connectivity_matrix
    utils.regress_categories
    utils.impute
@@ -91,10 +99,13 @@ Plotting
    :toctree: API
    :nosignatures:
 
+   pl.embedding
    pl.group_scatter
    pl.group_kde
    pl.loss_history
-   pl.spectral_permutation_test
+   pl.spectral_test
+   pl.moran_test
+   pl.spca_test
    pl.clone_size
    pl.nesting_clones
    pl.volcano
@@ -102,13 +113,14 @@ Plotting
    pl.barplot
    pl.heatmap
    pl.predictors_comparison
-   pl.catboost_perfomance
+   pl.catboost_performance
    pl.clones2cells
    pl.graph
    pl.group_connectivity
    pl.pca_loadings
    pl.scaled_dotplot
    pl.scatter2vars
+   pl.de_trend
    pl.embedding_axis
    pl.small_cbar
    pl.fancy_legend

@@ -254,3 +254,25 @@ def test_laplacian_eigenmaps():
     assert ad.obsm["X_laplacian"].shape == (n, k)
     assert "laplacian_eigenmaps" in ad.uns
     assert len(ad.uns["laplacian_eigenmaps"]["eigenvalues"]) == k
+
+# ===== Tests for permute_clones =====
+
+def test_permute_clones_preserves_sizes_and_kept_labels():
+    rng = np.random.default_rng(0)
+    labels = pd.Series(rng.choice(["a", "b", "c", "NA"], size=200), index=[f"cell_{i}" for i in range(200)])
+    permuted = c2v.utils.permute_clones(labels, keep_labels="NA", random_state=1)
+    assert permuted.index.equals(labels.index)
+    pd.testing.assert_series_equal(permuted.value_counts().sort_index(), labels.value_counts().sort_index())
+    assert (permuted[labels == "NA"] == "NA").all()
+    assert not permuted.equals(labels)
+    assert permuted.equals(c2v.utils.permute_clones(labels, keep_labels="NA", random_state=1))
+
+
+def test_permute_clones_within_batch():
+    rng = np.random.default_rng(0)
+    labels = pd.Series(rng.choice(["a", "b", "c"], size=300))
+    batch = pd.Series(rng.choice(["x", "y"], size=300))
+    permuted = c2v.utils.permute_clones(labels, batch=batch, random_state=2)
+    before = pd.crosstab(labels, batch)
+    after = pd.crosstab(permuted, batch)
+    pd.testing.assert_frame_equal(before, after, check_names=False)

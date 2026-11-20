@@ -53,7 +53,8 @@ def clones_adata(
         A new AnnData object where each observation is a clone. The `.X` matrix and
         `.layers['proportions']` store composition proportions, and `.layers['counts']`
         stores raw counts. The `.obs['n_cells']` column contains the number of
-        cells per clone.
+        cells per clone. `.uns['filtered_clones']` keeps the names and sizes of the
+        clones smaller than `min_size`.
     """
     # Scanpy-style logging
     start = logg.info("creating clone-level AnnData")
@@ -64,6 +65,7 @@ def clones_adata(
     
     valid_clone_names = clones_counts[clones_counts >= min_size].index
     valid_clone_names = valid_clone_names.drop(na_value, errors="ignore")
+    filtered_clones = clones_counts[(clones_counts > 0) & (clones_counts < min_size)].drop(na_value, errors="ignore")
 
     n_all = len(clones_counts.drop(na_value, errors="ignore"))
     n_valid = len(valid_clone_names)
@@ -99,7 +101,16 @@ def clones_adata(
         obs=pd.DataFrame(index=list(valid_clone_names)),
         var=pd.DataFrame(index=var_names),
         layers={"proportions": freqs.T, "counts": cell_counts.T},
-        uns={"fill_obs": fill_obs, "min_size": min_size, "obs_name": obs_name},
+        uns={
+            "fill_obs": fill_obs,
+            "min_size": min_size,
+            "obs_name": obs_name,
+            "na_value": na_value,
+            "filtered_clones": {
+                "names": np.asarray(filtered_clones.index.astype(str)),
+                "n_cells": filtered_clones.to_numpy(dtype=int),
+            },
+        },
     )
 
     # 4. Add n_cells information from the filtered data
@@ -121,6 +132,7 @@ def clones_adata(
         "     .obs['n_fates'] integer vector with number of fates per clone",
         "     .var['n_clones'] integer vector with number of clones per fate",
         "     .uns['fill_obs'] string label",
+        "     .uns['filtered_clones'] names and sizes of the clones smaller than min_size",
     ]
     logg.info("    finished ({time_passed})", deep="\n".join(lines), time=start)
 
@@ -377,7 +389,8 @@ def transfer_expression(
     layer: str | None = None,
     use_raw: bool | None = None,
     layers_to_obsm: list[str] | str | None = None,
-    mask_key: str = "mask",
+    presence_key: str = "group_presence",
+    mask: bool | np.ndarray | pd.Series | str = False,
 ) -> AnnData:
     """
     Summarize gene expression at the clone level using a specified strategy (sum or average).
@@ -403,11 +416,20 @@ def transfer_expression(
     layers_to_obsm : list[str] | str | None, optional
         List of layers in `clones.layers` to transfer to `clones_expr.obsm`.
         If None, all layers with `adata.X` are transferred, by default None.
+    presence_key : str, optional
+        Key in `clones_expr.obsm` for the table with numbers of cells of each `split_obs`
+        group per clone (only used if `split_obs` is provided), by default "group_presence".
+    mask : bool | np.ndarray | pd.Series | str, optional
+        Cells of `adata` to use. If False, all cells are used. If a boolean vector of length
+        `adata.n_obs`, equivalent to passing `adata[mask]`. If a string, the `key_added` of
+        `tl.mask_heterogeneity`: only cells masked there (`clones.uns[mask]['clonal_nn']['mask']`)
+        are used. True is the same as "mask" (default `key_added` of `tl.mask_heterogeneity`).
+        By default False.
 
     Returns
     -------
     AnnData
-        Annotated data matrix at the clone level with summarized gene expression. 
+        Annotated data matrix at the clone level with summarized gene expression.
         The strategy used for aggregation is stored in `clones.uns["transfer_expression"]["strategy"]`.
         If `split_obs` is provided, the aggregation is performed within each group defined by `split_obs` and stored
         in `clones.layers[g]` where `g` is the group name. Clones without a matching group in `split_obs` contain
@@ -418,6 +440,22 @@ def transfer_expression(
             obs_name = clones.uns["obs_name"]
         except KeyError:
             raise KeyError("obs_name not found in clones.uns. Please provide obs_name.")
+
+    if mask is True:
+        mask = "mask"
+    # stored to let `tl.permuted_graph_associations` repeat the transfer
+    if isinstance(mask, str) or mask is False:
+        mask_param = mask
+    else:
+        mask_param = "custom"
+    if isinstance(mask, str):
+        try:
+            stored_masks = clones.uns[mask]["clonal_nn"]["mask"]
+        except KeyError:
+            raise KeyError(f"No masks found in clones.uns['{mask}']['clonal_nn']['mask']. Run tl.mask_heterogeneity with key_added='{mask}' first.")
+        mask = np.logical_or.reduce([np.asarray(m, dtype=bool) for m in stored_masks.values()])
+    if mask is not False:
+        adata = adata[np.asarray(mask, dtype=bool)]
 
     if obs_name not in adata.obs:
         raise KeyError(f"obs_name '{obs_name}' not found in adata.obs. Please provide a valid obs_name.")
@@ -539,7 +577,16 @@ def transfer_expression(
         obsp=clones.obsp.copy(),
         uns=clones.uns.copy(),
     )
-    clones_expr.uns["transfer_expression"] = {"strategy": strategy}
+    params = {
+        "strategy": strategy,
+        "obs_name": obs_name,
+        "use_col": use_col,
+        "layer": layer,
+        "use_raw": use_raw,
+        "mask": mask_param,
+    }
+    clones_expr.uns["transfer_expression"] = {k: v for k, v in params.items() if v is not None}
+    clones_expr.obs["n_cells_expr"] = counts.astype(int)
 
     if layers_to_obsm is None:
         layers_to_obsm = ["X"] + list(clones.layers.keys())
@@ -627,10 +674,10 @@ def transfer_expression(
             else:
                 X_agg_g[~mask_nonzero, :] = np.nan
                 clones_expr.layers[g] = X_agg_g
-            zero_df[g] = mask_nonzero
+            zero_df[g] = counts_g.astype(int)
 
-        clones_expr.obsm[mask_key] = pd.DataFrame(zero_df, index=clones_expr.obs_names)
-        clones_expr.uns["mask_key"] = mask_key
+        clones_expr.obsm[presence_key] = pd.DataFrame(zero_df, index=clones_expr.obs_names)
+        clones_expr.uns["presence_key"] = presence_key
         clones_expr.uns["transfer_expression"]["split_obs"] = split_obs
 
     nonzero_clones = np.asarray(clones_expr.X.sum(axis=1)).ravel() > 0
@@ -641,8 +688,8 @@ def transfer_expression(
     lines = [
         "created clone-level AnnData with",
         "     .X aggregated expression matrix (clones × genes)",
-        "     .uns['transfer_expression'] dict with 'strategy'",
-        f"     .uns['mask_key'] string with obsm key for boolean mask of clones with non-zero cells",
+        "     .uns['transfer_expression'] dict with aggregation parameters",
+        "     .obs['n_cells_expr'] number of cells used for aggregation",
     ]
     if 'lt' in locals() and lt is not None:
         if "X" in lt:
@@ -651,7 +698,8 @@ def transfer_expression(
             lines.append(f"     .obsm['{layer_name}'] dataframe of features")
     if split_obs is not None:
         lines.append(f"     .layers['<groups>'] aggregated matrices per '{split_obs}' group")
-        lines.append(f"     .obsm['{mask_key}'] boolean mask of clones with zero cells")
+        lines.append(f"     .obsm['{presence_key}'] number of cells of each '{split_obs}' group per clone")
+        lines.append(f"     .uns['presence_key'] obsm key of the table above")
     logg.info("    finished ({time_passed})", deep="\n".join(lines), time=start)
 
     return clones_expr

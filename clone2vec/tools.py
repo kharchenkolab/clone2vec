@@ -9,18 +9,26 @@ import sys
 from contextlib import nullcontext
 from typing import Any, Literal
 from tqdm import tqdm
+from . import embeddings as _embeddings
 from .embeddings import (
     clone2vec, clone2vec_Poi, project_clone2vec, project_clone2vec_Poi
 )
 from .integration import find_mnn, align
-from .associations import associations, graph_associations
-from .eigenvalues import eigenvalue_test, spectral_permutation_test
+from .associations import (
+    associations, graph_associations, moran, spca, fast_corr,
+    permuted_graph_associations, masked_markers,
+)
+from .permutations import (
+    spectral_test, permute_embeddings
+)
 from .catboost import catboost
 
 logg = sc.logging
 
 __all__ = [
     "clonal_nn",
+    "mask_heterogeneity",
+    "masked_markers",
     "smooth",
     "clone2vec",
     "clone2vec_Poi",
@@ -29,17 +37,96 @@ __all__ = [
     "find_mnn",
     "align",
     "associations",
+    "fast_corr",
     "group_connectivity",
     "clonocluster",
     "graph_associations",
-    "eigenvalue_test",
-    "spectral_permutation_test",
+    "moran",
+    "spca",
+    "spectral_test",
+    "permute_embeddings",
+    "permuted_graph_associations",
     "catboost",
 ]
 
 def __dir__():
     return sorted(__all__)
-    
+
+
+def _average_masked_adjacency(
+    row_idx: np.ndarray,
+    col_idx: np.ndarray,
+    valid_mask: np.ndarray,
+    cells: np.ndarray,
+    mask_group: np.ndarray,
+    n_masks: int,
+    labels_encoded: np.ndarray,
+    n_rows: int,
+    n_cols: int,
+    k_eff: int,
+    rng: np.random.Generator,
+    strategy: Literal["multinomial_average", "shuffle", "smooth"] = "multinomial_average",
+) -> sp.csr_matrix:
+    """
+    Builds the "multinomial_average", "shuffle" or "smooth" replacement for masked cells' neighbourhoods.
+
+    For every mask ``i`` (each masked cell is assigned to the first mask it belongs to),
+    the pan-mask neighbour profile ``g_i`` is the count of neighbour clones over all
+    valid edges that start in cells of mask ``i``. Each masked cell then draws ``k_eff``
+    neighbour clones with probabilities ``g_i / sum(g_i)`` (implemented as one
+    categorical draw per pseudo-edge, so cost and memory are linear in the number of
+    masked edges).
+
+    If ``shuffle`` is True, the neighbour clones of all valid edges of mask ``i`` are
+    instead randomly permuted once across these edges, so ``g_i`` is preserved exactly.
+
+    If ``strategy`` is "smooth", each masked cell instead adds the expected counts
+    ``k_eff * g_i / sum(g_i)`` (non-integer) to its clone's row.
+    """
+    rows_out, cols_out, vals_out = [], [], []
+    edge_group = mask_group[row_idx]
+
+    for i in range(n_masks):
+        edges_i = valid_mask & (edge_group == i)
+        if not edges_i.any():
+            continue
+        if strategy == "shuffle":
+            rows_out.append(labels_encoded[row_idx[edges_i]])
+            cols_out.append(rng.permutation(col_idx[edges_i]))
+            vals_out.append(np.ones(edges_i.sum(), dtype=np.int32))
+            continue
+        g_full = np.bincount(col_idx[edges_i], minlength=n_cols)
+        support = np.flatnonzero(g_full)
+        g = g_full[support]
+
+        cells_i = cells[mask_group[cells] == i]
+        n_per_clone = np.bincount(labels_encoded[cells_i], minlength=n_rows)
+        clones_i = np.flatnonzero(n_per_clone)
+        if clones_i.size == 0:
+            continue
+
+        if strategy == "smooth":
+            expected = np.outer(n_per_clone[clones_i] * k_eff, g / g.sum())
+            rows_out.append(np.repeat(clones_i, support.size))
+            cols_out.append(np.tile(support, clones_i.size))
+            vals_out.append(expected.ravel())
+            continue
+
+        n_draws = n_per_clone[clones_i].astype(np.int64) * k_eff
+        draws = support[np.searchsorted(np.cumsum(g), rng.integers(0, g.sum(), n_draws.sum()), side="right")]
+        rows_out.append(np.repeat(clones_i, n_draws))
+        cols_out.append(draws)
+        vals_out.append(np.ones(draws.size, dtype=np.int32))
+
+    if not rows_out:
+        return sp.csr_matrix((n_rows, n_cols), dtype=np.int32)
+
+    return sp.csr_matrix(
+        (np.concatenate(vals_out),
+         (np.concatenate(rows_out), np.concatenate(cols_out))),
+        shape=(n_rows, n_cols),
+    )
+
 
 def clonal_nn(
     adata: sc.AnnData,
@@ -55,6 +142,7 @@ def clonal_nn(
     split_by: str | None = None,
     progress_bar: bool = False,
     mask_obs: list[np.ndarray | pd.Series] | np.ndarray | pd.Series | None = None,
+    masking_strategy: Literal["hide", "multinomial_average", "shuffle", "smooth"] = "hide",
     **kwargs,
 ) -> None:
     """
@@ -90,6 +178,30 @@ def clonal_nn(
         Column in `clones.obs` to split the independent kNN-graph constriction, by default None.
     progress_bar : bool, optional
         Whether to display a progress bar in the case of split_by, by default False.
+    mask_obs : list[np.ndarray | pd.Series] | np.ndarray | pd.Series | None, optional
+        Mask to exclude cells from the kNN graph construction, by default None.
+    masking_strategy : {"hide", "multinomial_average", "shuffle", "smooth"}, optional
+        How neighbourhoods of masked cells are treated (only used if `mask_obs` is provided),
+        by default "hide".
+
+        - ``"hide"``: neighbours of masked cells are dropped from the adjacency (masked cells
+          can still be neighbours of other cells).
+        - ``"multinomial_average"``: neighbours of masked cells are replaced by draws from the
+          pan-mask average neighbourhood. For every mask, the neighbour-clone profile over all
+          masked cells is computed, and each masked cell draws ``k`` pseudo-neighbours from a
+          multinomial distribution with probabilities equal to this profile (seeded by
+          `random_state`). With multiple masks, a cell is assigned to the first mask it
+          belongs to. With `split_by`, the profile is computed separately within each split.
+          Note: `.obsm['masked_nn']` is still recorded; do not additionally pass it as
+          `mask_key` downstream, as masked cells are already represented in the graph.
+        - ``"shuffle"``: neighbour clones of masked cells are randomly permuted once across
+          all masked cells of the same mask (and split), seeded by `random_state`. The pan-mask
+          neighbour profile is preserved exactly. Mask assignment, `split_by` handling and
+          the `.obsm['masked_nn']` note are the same as for ``"multinomial_average"``.
+        - ``"smooth"``: deterministic version of ``"multinomial_average"``: instead of sampling,
+          each masked cell adds its expected neighbour counts ``k * profile / sum(profile)``,
+          so the adjacency becomes non-integer (float). Mask assignment, `split_by` handling and
+          the `.obsm['masked_nn']` note are the same as for ``"multinomial_average"``.
     **kwargs : dict, optional
         Additional keyword arguments to pass to `pynndescent.NNDescent`.
 
@@ -151,6 +263,17 @@ def clonal_nn(
         masks_train_list = []
     masked_sum_cols = None
 
+    if masking_strategy not in {"hide", "multinomial_average", "shuffle", "smooth"}:
+        raise ValueError("masking_strategy must be one of {'hide', 'multinomial_average', 'shuffle', 'smooth'}.")
+    use_average = masking_strategy != "hide" and len(masks_train_list) > 0
+    if use_average:
+        # shared generator: successive splits get different (but reproducible) draws
+        avg_rng = np.random.default_rng(random_state)
+        # each masked cell belongs to the first mask it is flagged in; -1 = unmasked
+        mask_group = np.full(n_train_cells, -1, dtype=np.int32)
+        for i in range(len(masks_train_list) - 1, -1, -1):
+            mask_group[masks_train_list[i]] = i
+
     if adata_ref is not None and clones_ref is not None:
         if split_by is not None:
             raise ValueError("split_by is not supported when using clones_ref.")
@@ -182,6 +305,14 @@ def clonal_nn(
         )
 
         nn_transfer = I_sparse @ B_sparse
+        if use_average:
+            nn_transfer = nn_transfer + _average_masked_adjacency(
+                row_idx, col_idx, valid_mask,
+                cells=np.arange(n_train_cells),
+                mask_group=mask_group, n_masks=len(masks_train_list),
+                labels_encoded=train_labels_encoded,
+                n_rows=n_clones, n_cols=len(clones_ref.obs_names), k_eff=k, rng=avg_rng, strategy=masking_strategy,
+            )
 
         if nn_transfer_name in clones.obsm:
             logg.warning(f"Overwriting existing matrix '{nn_transfer_name}' in clones.obsm")
@@ -205,6 +336,7 @@ def clonal_nn(
         }
         if mask_series_list:
             clones.uns["clonal_nn"]["mask"] = {n: ms.loc[adata.obs_names].to_numpy() for n, ms in zip(mask_names, mask_series_list)}
+            clones.uns["clonal_nn"]["masking_strategy"] = masking_strategy
         lines = [
             "added",
             f"     .obsm['{nn_transfer_name}'] clone-to-reference adjacency.",
@@ -236,6 +368,14 @@ def clonal_nn(
             )
 
             gex_adjacency = I_sparse @ B_sparse
+            if use_average:
+                gex_adjacency = gex_adjacency + _average_masked_adjacency(
+                    row_idx, col_idx, valid_mask,
+                    cells=np.arange(n_train_cells),
+                    mask_group=mask_group, n_masks=len(masks_train_list),
+                    labels_encoded=train_labels_encoded,
+                    n_rows=n_clones, n_cols=n_clones, k_eff=k, rng=avg_rng, strategy=masking_strategy,
+                )
             if len(masks_train_list) > 0:
                 masked_cols = []
                 for m in masks_train_list:
@@ -267,7 +407,7 @@ def clonal_nn(
             categories = [c for c in categories if pd.notna(c)]
 
             if sc.settings.verbosity.value >= 2:
-                prefix = "    "
+                prefix = _embeddings._progress_indent
                 progress_bar = True
             else:
                 prefix = ""
@@ -302,6 +442,14 @@ def clonal_nn(
                     )
 
                     gex_adjacency += I_sparse @ B_sparse
+                    if use_average:
+                        gex_adjacency += _average_masked_adjacency(
+                            row_idx, col_idx, valid_mask,
+                            cells=subset_rows,
+                            mask_group=mask_group, n_masks=len(masks_train_list),
+                            labels_encoded=train_labels_encoded,
+                            n_rows=n_clones, n_cols=n_clones, k_eff=k_subset, rng=avg_rng, strategy=masking_strategy,
+                        )
                     if len(masks_train_list) > 0:
                         cols_this = []
                         for m in masks_train_list:
@@ -327,6 +475,7 @@ def clonal_nn(
         }
         if mask_series_list:
             clones.uns["clonal_nn"]["mask"] = {n: ms.loc[adata.obs_names].to_numpy() for n, ms in zip(mask_names, mask_series_list)}
+            clones.uns["clonal_nn"]["masking_strategy"] = masking_strategy
             if masked_sum_cols is None and len(masks_train_list) > 0 and split_by is None:
                 masked_sum_cols = clones.obsm.get("masked_nn", None)
                 if isinstance(masked_sum_cols, pd.DataFrame):
@@ -340,6 +489,117 @@ def clonal_nn(
             "     .uns['clonal_nn'] parameters.",
         ]
         logg.info("    finished ({time_passed})", deep="\n".join([l for l in lines if l is not None]), time=start)
+
+def mask_heterogeneity(
+    adata: sc.AnnData,
+    clones: sc.AnnData,
+    mask: np.ndarray | pd.Series,
+    key_added: str = "mask",
+) -> None:
+    """
+    Recomputes the clone-to-clone adjacency graph with masked cells and refits clone2vec on it.
+
+    Runs `clonal_nn` with `mask_obs=mask` on a copy of `clones` (reusing `k`, `use_rep` and
+    `split_by` from `clones.uns['clonal_nn']`), then `clone2vec` (or `clone2vec_Poi` if only
+    it was fitted on `clones`) with `mask_key="masked_nn"` and `init="random"`. The masked
+    adjacency graph and masked neighbour counts are used only internally and are not stored.
+
+    Parameters
+    ----------
+    adata : AnnData
+        The original, cell-level annotated data matrix.
+    clones : AnnData
+        The clone-level AnnData object with `clonal_nn` and `clone2vec` already computed.
+    mask : np.ndarray | pd.Series
+        Boolean mask of length `adata.n_obs` marking cells to mask.
+    key_added : str, optional
+        Key under which results are stored in `clones`, by default "mask".
+
+    Returns
+    -------
+    None
+        Updates `clones` in-place with:
+
+        - `.obsm['{c2v_key}_{key_added}']`: embedding matrix fitted on the masked graph
+          (`c2v_key` is "clone2vec" or "clone2vec_Poi").
+        - `.uns[key_added]`: dictionary with `clonal_nn` parameters (under "clonal_nn") and
+          training details (under `c2v_key`).
+    """
+    hint = (
+        "`mask_heterogeneity` is a wrapper that inherits the parameters of the original "
+        "embedding construction, so it requires `clonal_nn` and `clone2vec` (or `clone2vec_Poi`) "
+        "to be run on `clones` beforehand. If they have not been run, it is better to call "
+        "`clonal_nn(..., mask_obs=mask)` and `clone2vec(..., mask_key='masked_nn')` explicitly."
+    )
+    nn_params = clones.uns.get("clonal_nn")
+    obsp_name = nn_params.get("obsp_name") if isinstance(nn_params, dict) else None
+    if obsp_name is None or obsp_name not in clones.obsp:
+        raise ValueError(
+            "Clone-to-clone adjacency graph not found (missing `clones.uns['clonal_nn']` or the "
+            f"corresponding graph in `clones.obsp`). {hint}"
+        )
+    use_poi = "clone2vec" not in clones.uns and "clone2vec_Poi" in clones.uns
+    c2v_key = "clone2vec_Poi" if use_poi else "clone2vec"
+    if c2v_key not in clones.uns or c2v_key not in clones.obsm:
+        raise ValueError(
+            "Clonal embedding not found (missing `clones.obsm['clone2vec']`/`clones.uns['clone2vec']` "
+            f"or their `clone2vec_Poi` counterparts). {hint}"
+        )
+
+    start = logg.info("masking cells and refitting clone2vec embeddings")
+    clones_masked = clones.copy()
+    clones_masked.obsp.pop(obsp_name, None)
+    for key in ["masked_nn", c2v_key]:
+        clones_masked.obsm.pop(key, None)
+        clones_masked.uns.pop(key, None)
+
+    # inner functions log as sub-tasks: headers indented one level, their "finished" reports hidden
+    def as_subtask(record):
+        if str(record.msg).startswith("    finished"):
+            return False
+        record.msg = "    " + str(record.msg)
+        return True
+
+    root_logger = sc.settings._root_logger
+    root_logger.addFilter(as_subtask)
+    _embeddings._progress_indent = "        "
+    try:
+        clonal_nn(
+            adata,
+            clones_masked,
+            k=nn_params["k"],
+            use_rep=nn_params["use_rep"],
+            obsp_name=obsp_name,
+            split_by=nn_params.get("split_by"),
+            mask_obs=mask,
+        )
+        if use_poi:
+            clone2vec_Poi(
+                clones_masked, z_dim=clones.obsm[c2v_key].shape[1], obsp_key=obsp_name,
+                mask_key="masked_nn", init="random",
+            )
+        else:
+            clone2vec(
+                clones_masked, z_dim=clones.obsm[c2v_key].shape[1], obsp_key=obsp_name,
+                mask_key="masked_nn", init="random",
+            )
+    finally:
+        root_logger.removeFilter(as_subtask)
+        _embeddings._progress_indent = "    "
+
+    obsm_key = f"{c2v_key}_{key_added}"
+    clones.obsm[obsm_key] = clones_masked.obsm[c2v_key]
+    clones.uns[key_added] = {
+        "clonal_nn": clones_masked.uns["clonal_nn"],
+        c2v_key: clones_masked.uns[c2v_key],
+    }
+
+    lines = [
+        "added",
+        f"     .obsm['{obsm_key}'] embedding matrix.",
+        f"     .uns['{key_added}'] clonal_nn parameters and training details.",
+    ]
+    logg.info("    finished ({time_passed})", deep="\n".join(lines), time=start)
 
 def smooth(
     adata: sc.AnnData,

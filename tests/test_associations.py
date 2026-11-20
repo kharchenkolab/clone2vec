@@ -339,8 +339,8 @@ def test_associations_binomial_gam(adata_binomial):
 
 
 def test_weighted_corr_vs_manual():
-    """Verify that _fast_corr with weights matches a manual weighted Pearson."""
-    from clone2vec.associations import _fast_corr
+    """Verify that fast_corr with weights matches a manual weighted Pearson."""
+    from clone2vec.associations import fast_corr
 
     rng = np.random.RandomState(42)
     n, p, q = 100, 5, 2
@@ -348,7 +348,7 @@ def test_weighted_corr_vs_manual():
     Y = rng.randn(n, q)
     weights = rng.rand(n) * 10 + 1  # positive weights
 
-    res = _fast_corr(X, Y, method="pearson", significance=True, slope=False, weights=weights)
+    res = fast_corr(X, Y, method="pearson", significance=True, slope=False, weights=weights)
 
     # Manual weighted Pearson
     w = weights / weights.sum()
@@ -367,3 +367,92 @@ def test_weighted_corr_vs_manual():
 
     # Check p-values are finite
     assert np.all(np.isfinite(res["pvalue"]))
+
+# ===== Graph associations: moran / spca =====
+
+@pytest.fixture(scope="session")
+def graph_adata():
+    rng = np.random.default_rng(0)
+    n = 60
+    W = sp.random(n, n, density=0.1, random_state=0, format="csr")
+    W = W + W.T
+    W.setdiag(0)
+    W.eliminate_zeros()
+    X = rng.standard_normal((n, 8))
+    X -= X.mean(0)
+    return sc.AnnData(X=X, obsp={"connectivities": sp.csr_matrix(W)})
+
+
+def test_moran_matches_manual(graph_adata):
+    ad = graph_adata.copy()
+    c2v.tl.moran(ad)
+    X, W = ad.X, ad.obsp["connectivities"].toarray()
+    expected = X.shape[0] / W.sum() * np.diag(X.T @ W @ X) / (X ** 2).sum(0)
+    np.testing.assert_allclose(ad.var["morans_i"].values, expected)
+    assert ad.var["morans_i_pval"].between(0, 1).all()
+    assert (ad.var["morans_i_p_adj"] >= ad.var["morans_i_pval"] - 1e-12).all()
+
+
+def test_moran_detects_smooth_signal():
+    n = 50
+    rows = list(range(n - 1)) + list(range(1, n))
+    cols = list(range(1, n)) + list(range(n - 1))
+    W = sp.csr_matrix((np.ones(len(rows)), (rows, cols)), shape=(n, n))
+    x = np.sin(np.linspace(0, np.pi, n))
+    X = np.column_stack([x - x.mean(), np.random.default_rng(0).standard_normal(n)])
+    ad = sc.AnnData(X=X - X.mean(0), obsp={"connectivities": W})
+    c2v.tl.moran(ad)
+    assert ad.var["morans_i"].iloc[0] > 0.9
+    assert ad.var["morans_i_pval"].iloc[0] < 1e-6
+
+
+@pytest.mark.parametrize("n_vars", [8, 200])
+def test_spca_matches_direct_eigh(n_vars):
+    # n_vars > n_obs exercises the Gram-matrix branch of the eigendecomposition
+    rng = np.random.default_rng(1)
+    n, n_pcs = 60, 5
+    W = sp.random(n, n, density=0.1, random_state=1, format="csr")
+    W = sp.csr_matrix(W + W.T)
+    X = rng.standard_normal((n, n_vars))
+    X -= X.mean(0)
+    ad = sc.AnnData(X=X, obsp={"connectivities": W})
+    c2v.tl.spca(ad, n_pcs=n_pcs)
+
+    M = X.T @ W.toarray() @ X
+    expected = np.sort(np.linalg.eigvalsh(M))[::-1][:n_pcs]
+    np.testing.assert_allclose(ad.uns["spca"]["evals"], expected, rtol=1e-6, atol=1e-8)
+    V = ad.varm["sPCs"]
+    np.testing.assert_allclose(V.T @ V, np.eye(n_pcs), atol=1e-8)
+    np.testing.assert_allclose(V.T @ M @ V, np.diag(expected), atol=1e-6)
+    np.testing.assert_allclose(ad.obsm["X_sPCA"], X @ V)
+
+
+# ===== fast_corr =====
+
+@pytest.mark.parametrize("method", ["pearson", "spearman"])
+@pytest.mark.parametrize("sparse_X", [False, True])
+def test_fast_corr_matches_scipy(method, sparse_X):
+    rng = np.random.default_rng(3)
+    X = rng.poisson(1.0, size=(80, 6)).astype(float)
+    Y = pd.DataFrame(rng.standard_normal((80, 2)), columns=["y1", "y2"])
+    X_df = pd.DataFrame(X, columns=[f"g{i}" for i in range(6)])
+    res = c2v.tl.fast_corr(sp.csr_matrix(X) if sparse_X else X_df, Y, method=method, progress_bar=False)
+    ref = pearsonr if method == "pearson" else spearmanr
+    r = np.asarray(res["r"])
+    p = np.asarray(res["pvalue"])
+    for i in range(X.shape[1]):
+        for j in range(Y.shape[1]):
+            stat = ref(X[:, i], Y.iloc[:, j])
+            assert r[i, j] == pytest.approx(stat[0])
+            assert p[i, j] == pytest.approx(stat[1])
+    if not sparse_X:
+        assert list(res["r"].index) == list(X_df.columns)
+        assert list(res["r"].columns) == ["y1", "y2"]
+
+
+def test_fast_corr_constant_column_is_nan():
+    rng = np.random.default_rng(4)
+    X = np.column_stack([np.ones(30), rng.standard_normal(30)])
+    res = c2v.tl.fast_corr(X, rng.standard_normal((30, 1)), progress_bar=False)
+    assert np.isnan(res["r"][0, 0])
+    assert np.isfinite(res["r"][1, 0])

@@ -13,6 +13,7 @@ logg = sc.logging
 
 __all__ = [
     "Liu_NSCLC_CD8",
+    "Ireland_SCLC",
     "Weinreb_in_vitro",
     "Erickson_murine_development",
 ]

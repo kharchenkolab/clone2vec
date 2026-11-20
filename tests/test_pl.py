@@ -152,8 +152,8 @@ def test_pca_loadings(adata_dense):
     ad = adata_dense.copy()
     rng = np.random.RandomState(7)
     n_comps = 3
-    ad.varm["gPCs"] = rng.randn(ad.n_vars, n_comps)
-    fig = c2v.pl.pca_loadings(ad, key="gPCs", comp=0, n_genes=3, return_fig=True)
+    ad.varm["sPCs"] = rng.randn(ad.n_vars, n_comps)
+    fig = c2v.pl.pca_loadings(ad, key="sPCs", comp=0, n_genes=3, return_fig=True)
     assert isinstance(fig, plt.Figure)
     plt.close("all")
 
@@ -205,9 +205,9 @@ def test_predictors_comparison():
     plt.close("all")
 
 
-# ===== catboost_perfomance =====
+# ===== catboost_performance =====
 
-def test_catboost_perfomance():
+def test_catboost_performance():
     rng = np.random.RandomState(9)
     n_obs = 20
     fates = ["fateA", "fateB"]
@@ -222,7 +222,7 @@ def test_catboost_perfomance():
         rng.rand(n_obs, 2), columns=fates, index=shapdata.obs_names,
     )
     shapdata.uns["catboost_info"] = {"obsm_key": "X_comp", "fates_used": fates}
-    fig = c2v.pl.catboost_perfomance(shapdata, var_names=["fateA"], return_fig=True)
+    fig = c2v.pl.catboost_performance(shapdata, var_names=["fateA"], return_fig=True)
     assert isinstance(fig, plt.Figure)
     plt.close("all")
 
