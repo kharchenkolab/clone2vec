@@ -7,7 +7,7 @@ from pathlib import Path
 import scanpy as sc
 
 zenodo_record_lt = "15334396"
-zenodo_record_c2v = "22644169"
+zenodo_record_c2v = "24461062"
 
 logg = sc.logging
 
@@ -16,10 +16,46 @@ __all__ = [
     "Ireland_SCLC",
     "Weinreb_in_vitro",
     "Erickson_murine_development",
+    "Lareau_in_vitro",
 ]
 
 def __dir__():
     return sorted(__all__)
+
+def Lareau_in_vitro(
+    embedding_type: Literal["gex", "c2v"] = "gex",
+    file_path: str | Path | None = None,
+) -> AnnData:
+    """
+    Dataset from Lareau et al. [PMID: 32788668] with in vitro hematopoiesis from CD34+
+    progenitors.
+
+    Parameters
+    ----------
+    embedding_type : Literal["gex", "c2v"], optional
+        Type of embedding to use, by default "gex".
+    file_path : str | Path | None, optional
+        Path where .h5ad-container will be stored, by default None.
+
+    Returns
+    -------
+    AnnData
+        Annotated data matrix with the dataset.
+    """
+    if embedding_type == "c2v":
+        logg.info("using clonal embedding (compositions in adata.X)")
+    elif embedding_type == "gex":
+        logg.info("using gene expression embedding")
+    else:
+        raise ValueError("embedding_type must be one of 'gex' or 'c2v'")
+
+    if file_path is None:
+        file_path = f"data/Lareau_in_vitro_{embedding_type}.h5ad"
+
+    url = f"https://zenodo.org/records/{zenodo_record_c2v}/files/Lareau_in_vitro_{embedding_type}.h5ad"
+
+    adata = read(file_path, backup_url=url, sparse=True, cache=True)
+    return adata
 
 def Liu_NSCLC_CD8(
     embedding_type: Literal["gex", "c2v"] = "gex",

@@ -57,5 +57,6 @@ The latest development version can be installed from GitHub using:
    Graph_input
    Batch_effect_propagation
    Integration
+   mtDNA_mutations
    Spatial_classification_mRNA
    
