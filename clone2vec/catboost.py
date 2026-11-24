@@ -298,7 +298,7 @@ def catboost(
     obsm_key : str
         Key in `clones.obsm` to use for the response variable.
     gs_key : str | None, optional
-        Key in `clones.obs` with `c2v.utils.gs()` parameters. Default is None.
+        Key in `clones.uns` with `c2v.utils.gs()` parameters. If None, uses "gs". Default is None.
     validation_key : str | None, optional
         Key in `clones.obs` to use for the train/validation split. If None, reconstructed from
         the clones.uns[gs_key]. Default is None.
@@ -312,6 +312,9 @@ def catboost(
         Whether to use `clones.raw` for feature selection. Default is None.
     layer : str | None, optional
         Layer in `clones.layers` to use for feature selection. Default is None.
+    min_size : int, optional
+        Minimum number of clones with a non-zero response in both the train and the validation
+        sets; response columns (fates) below it are excluded. Default is 3.
     model : Literal["regressor", "classifier"], optional
         Whether to perform regression or classification. Default is "regressor".
     num_trees : int, optional
@@ -334,7 +337,8 @@ def catboost(
     random_state : int | None, optional
         Random seed for reproducibility. Default is 42.
     prediction_key_added : str, optional
-        Key in `clones.obsm` to add the predicted values. Default is "predicted".
+        Suffix of the key with predicted values in the returned object:
+        `shapdata.obsm[f"{obsm_key}:{prediction_key_added}"]`. Default is "predicted".
     return_model : bool, optional
         Whether to return the trained model. Default is False.
     save_model : str | os.PathLike | None, optional
@@ -344,19 +348,24 @@ def catboost(
     catboost_dir : os.PathLike | str | None, optional
         Directory to save CatBoost training information. Default is None.
     presence_key : str | None | Literal[False], optional
-        Key in `clones.obs` or `clones.obsm` containing a boolean mask to filter clones, by default None.
+        Key in `clones.obsm` with a clone-by-layer presence matrix; when `layer` is set, clones
+        with zero presence in that layer are excluded. If None, uses `clones.uns["presence_key"]`
+        when available; False disables filtering. Default is None.
     clr_pseudocount : float, optional
-        Pseudocount to add to expression values before CLR transformation, by default 1e-3.
-
+        Pseudocount used for the CLR response transformation, by default 1e-3.
     **kwargs
         Additional keyword arguments to pass to CatBoostRegressor or CatBoostClassifier.
 
     Returns
     -------
-    clones : sc.AnnData
-        Annotated data matrix with the predicted values added to `clones.obsm[prediction_key_added]`.
+    shapdata : sc.AnnData
+        Clone-by-feature AnnData with mean absolute SHAP values in `.X`, per-response SHAP values
+        in `.layers`, the (transformed) response in `.obsm[obsm_key]`, predictions in
+        `.obsm[f"{obsm_key}:{prediction_key_added}"]`, SHAP summaries in `.varm["mean_shap"]` and
+        `.varm["gex_r"]`, the validation mask in `.obs["validation"]` and parameters in
+        `.uns["catboost_info"]`.
     model : CatBoostRegressor | CatBoostClassifier
-        Trained CatBoost model.
+        Trained CatBoost model, returned only if `return_model=True`.
     """
     import tempfile
 

@@ -156,7 +156,7 @@ def clonal_nn(
     adata : AnnData
         The original, cell-level annotated data matrix.
     clones : AnnData
-        The clone-level AnnData object, typically from `create_clone_adata`.
+        The clone-level AnnData object, typically from `c2v.pp.clones_adata`.
     obs_name : str | None, optional
         Column in `adata.obs` containing clonal information. If None, use `clones.uns["obs_name"]`, 
         by default None.
@@ -743,25 +743,37 @@ def clonocluster(
     """
     Performing ClonoCluster [PMID: 36819662] algorithm for lineage-informed gene expression clustering.
 
+    The expression kNN connectivities are blended with the lineage graph as
+    `alpha ** beta * (lineage - connectivities) + connectivities`. The result can be used for
+    clustering via `sc.tl.leiden(adata, neighbors_key=key_added)`.
+
     Parameters
     ----------
     adata : sc.AnnData
-        Annotated data matrix.
+        Cell-level annotated data matrix with a kNN graph (`sc.pp.neighbors`) and a lineage graph.
     alpha : float, optional
         Parameter for clonocluster algorithm, should be between 0 and 1. 0 means no inclusion of lineage information,
         1 means that only lineage information is used. Default is 0.2.
     beta : float, optional
-        Parameter for clonocluster algorithm, should be between 0 and 1. Default is 0.1.
+        Exponent applied to `alpha`, should be between 0 and 1. Default is 0.1.
     key_added : str, optional
-        Key in obsp to store clonocluster connectivities. Default is "ClonoCluster".
+        Prefix for the outputs: connectivities are stored in `adata.obsp[f"{key_added}_connectivities"]`
+        and graph metadata in `adata.uns[key_added]`. Default is "clonocluster".
     graph_key : str | None, optional
-        Key in uns to store graph. If None, looks for "neighbors". Default is None.
+        Key in `adata.uns` with the expression neighbors graph metadata. If None, uses "neighbors".
+        Default is None.
     lineage_graph : str, optional
-        Key in obsp to store lineage graph. Default is "connected".
+        Key in `adata.obsp` with the lineage graph (e.g. from `c2v.utils.connect_clones`).
+        Default is "connected".
+
+    Returns
+    -------
+    None
+        Adds `adata.obsp[f"{key_added}_connectivities"]` and `adata.uns[key_added]`.
     """
     if not 0 <= beta <= 1:
         raise ValueError("beta must be between 0 and 1")
-    if not 0 <= beta <= 1:
+    if not 0 <= alpha <= 1:
         raise ValueError("alpha must be between 0 and 1")
 
     if graph_key is None:

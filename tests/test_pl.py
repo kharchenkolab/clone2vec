@@ -286,9 +286,85 @@ def test_fancy_legend():
 
 # ===== clones2cells =====
 
-def test_clones2cells():
+def _run_clones2cells(ad, cl, monkeypatch, **kwargs):
     pytest.importorskip("ipywidgets", reason="ipywidgets not installed; skipping clones2cells test")
-    pytest.importorskip("jscatter", reason="jscatter not installed; skipping clones2cells test")
-    # If we get here, packages are available – constructing minimal test is complex
-    # due to widget requirements. Skip detailed test, just verify import works.
-    assert hasattr(c2v.pl, "clones2cells")
+    js = pytest.importorskip("jscatter", reason="jscatter not installed; skipping clones2cells test")
+    composed = []
+    compose = js.compose
+
+    def capture(items, **kw):
+        composed.extend(items)
+        return compose(items, **kw)
+
+    monkeypatch.setattr(js, "compose", capture)
+    widget = c2v.pl.clones2cells(ad, cl, obs_name="clone", show=False, **kwargs)
+    (scatter_cells, _), (scatter_clones, _) = composed
+    return widget, scatter_cells, scatter_clones
+
+@pytest.fixture
+def c2c_data(adata_with_umap_dense, clones):
+    cl = clones.copy()
+    cl.obsm["X_umap"] = np.random.RandomState(2).rand(cl.n_obs, 2)
+    return adata_with_umap_dense.copy(), cl
+
+@pytest.mark.parametrize("mode", ["highlight", "filter"])
+@pytest.mark.parametrize("cells_color", [None, "cell_type", "gene"])
+def test_clones2cells(mode, cells_color, c2c_data, monkeypatch):
+    ad, cl = c2c_data
+    if cells_color == "gene":
+        cells_color = ad.var_names[0]
+    widget, scatter_cells, scatter_clones = _run_clones2cells(
+        ad, cl, monkeypatch, cells_color=cells_color, mode=mode, norm_cells=(0, "p99"),
+    )
+    assert widget is not None
+
+    scatter_clones.widget.selection = np.array([0, 1])
+    assert set(cl.uns["clones2cells"]["last_selection"]) == set(cl.obs_names[:2])
+    scatter_clones.widget.selection = np.array([], dtype=int)
+
+    # the first n_obs points are all cells in both modes
+    scatter_cells.widget.selection = np.arange(ad.n_obs)
+    stat = ad.uns["clones2cells"]["clone_stat"]
+    assert len(ad.uns["clones2cells"]["last_selection"]) == ad.n_obs
+    assert np.allclose(stat.loc[cl.obs_names].values, 100)
+    scatter_cells.widget.selection = np.array([], dtype=int)
+
+def test_clones2cells_count_and_clone_color(c2c_data, monkeypatch):
+    ad, cl = c2c_data
+    _, scatter_cells, _ = _run_clones2cells(ad, cl, monkeypatch, clones_color="n_cells", selection_stat="count")
+    scatter_cells.widget.selection = np.arange(ad.n_obs)
+    stat = ad.uns["clones2cells"]["clone_stat"]
+    sizes = ad.obs["clone"].astype(str).value_counts()
+    assert np.allclose(stat.loc[cl.obs_names].values, sizes.loc[cl.obs_names].values)
+
+def test_clones2cells_errors(c2c_data):
+    pytest.importorskip("ipywidgets")
+    pytest.importorskip("jscatter")
+    ad, cl = c2c_data
+    with pytest.raises(ValueError):
+        c2v.pl.clones2cells(ad, cl, obs_name="clone", mode="other", show=False)
+    with pytest.raises(KeyError):
+        c2v.pl.clones2cells(ad, cl, obs_name="absent", show=False)
+    with pytest.raises(KeyError):
+        c2v.pl.clones2cells(ad, cl, obs_name="clone", cells_color="absent", show=False)
+
+def test_clones2cells_helpers():
+    from clone2vec import clones2cells as c2c
+
+    x = np.arange(101, dtype=float)
+    assert c2c._resolve_norm(None, x) == (0, 100)
+    assert c2c._resolve_norm((None, "p50"), x) == (0, 50)
+    assert c2c._resolve_norm(None, np.ones(3)) == (1, 2)
+    with pytest.raises(ValueError):
+        c2c._resolve_norm((10, 0), x)
+
+    assert c2c._bin(np.array([-1, 0, 0.5, 1, 2]), 0, 1, n=4).tolist() == [0, 0, 2, 3, 3]
+
+    labels = pd.Series(pd.Categorical(["a", "b", None, "c"]))
+    assert c2c._clone_codes(labels, pd.Index(["b", "a"])).tolist() == [1, 0, -1, -1]
+    assert c2c._clone_codes(pd.Series(["a", None, "b"]), pd.Index(["b", "a"])).tolist() == [1, -1, 0]
+
+    ad = sc.AnnData(np.zeros((3, 1)))
+    ad.obs["g"] = pd.Categorical(["x", "y", "x"])
+    assert c2c._palette_colors(ad, "g", ["x", "y"], {"x": "red", "y": "blue"}) == ["#ff0000", "#0000ff"]
+    assert c2c._palette_colors(ad, "g", ["x", "y"], "black") == ["#000000", "#000000"]

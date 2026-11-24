@@ -121,6 +121,24 @@ def test_transfer_annotation_adata_to_clones(adata, clones_with_fill):
     vals = cl.obs["gex_dummy"].astype(str).values
     assert set(np.unique(vals)) <= {"A", "B", "NA"}
 
+def test_transfer_annotation_default_names_and_errors(adata, clones_with_fill):
+    cl = clones_with_fill.copy()
+    ad = adata.copy()
+    cl.obs["label"] = pd.Categorical(["x"] * cl.n_obs)
+    c2v.pp.transfer_annotation(ad, cl, annotation_obs_clones="label", obs_name="clone")
+    in_clones = ad.obs["clone"].isin(cl.obs_names).values
+    assert set(ad.obs.loc[in_clones, "c2v_label"].astype(str)) == {"x"}
+    assert set(ad.obs.loc[~in_clones, "c2v_label"].astype(str)) == {"NA"}
+
+    ad.obs["clone_copy"] = ad.obs["clone"].astype(str)
+    c2v.pp.transfer_annotation(ad, cl, annotation_obs_adata="clone_copy", obs_name="clone")
+    assert (cl.obs["gex_clone_copy"].astype(str).values == cl.obs_names.values).all()
+
+    with pytest.raises(ValueError):
+        c2v.pp.transfer_annotation(ad, cl, obs_name="clone")
+    with pytest.raises(ValueError):
+        c2v.pp.transfer_annotation(ad, cl, annotation_obs_clones="label", annotation_obs_adata="clone_copy", obs_name="clone")
+
 # ===== transfer_expression =====
 
 @pytest.mark.parametrize("agg_strategy", ["average", "sum"])
@@ -161,3 +179,28 @@ def test_transfer_expression_use_raw_and_layer(adata_dense, clones_with_fill):
     assert len(cl_expr_raw.var_names) == ad.raw.var_names.size
     cl_expr_layer = c2v.pp.transfer_expression(ad, clones_with_fill, obs_name="clone", layer="custom")
     assert len(cl_expr_layer.var_names) == ad.var_names.size
+def test_transfer_expression_use_col(adata_dense, clones_with_fill):
+    ad = adata_dense
+    cl = clones_with_fill.copy()
+    groups = np.where(np.arange(cl.n_obs) % 2 == 0, "g0", "g1")
+    cl.obs["group"] = groups
+    cl_expr = c2v.pp.transfer_expression(ad, cl, obs_name="clone", use_col="group", use_raw=False)
+
+    for g in ["g0", "g1"]:
+        cells = ad.obs["clone"].isin(cl.obs_names[groups == g]).values
+        expected = ad.X[cells].mean(axis=0)
+        rows = np.where(cl_expr.obs["group"].values == g)[0]
+        assert np.allclose(cl_expr.X[rows], expected)
+        assert (cl_expr.obs["n_cells_expr"].values[rows] == cells.sum()).all()
+
+@pytest.mark.parametrize("matrix_kind", ["dense", "sparse"])
+def test_transfer_expression_mask_vector(matrix_kind, adata_dense, adata_sparse, clones_with_fill):
+    ad = adata_dense if matrix_kind == "dense" else adata_sparse
+    mask = np.zeros(ad.n_obs, dtype=bool)
+    mask[::2] = True
+    full = c2v.pp.transfer_expression(ad, clones_with_fill, obs_name="clone", use_raw=False)
+    masked = c2v.pp.transfer_expression(ad, clones_with_fill, obs_name="clone", use_raw=False, mask=mask)
+    assert masked.uns["transfer_expression"]["mask"] == "custom"
+    n_full = full.obs["n_cells_expr"].reindex(masked.obs_names)
+    assert (masked.obs["n_cells_expr"] <= n_full).all()
+    assert masked.obs["n_cells_expr"].sum() < full.obs["n_cells_expr"].sum()

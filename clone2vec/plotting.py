@@ -11,6 +11,8 @@ import scipy.sparse as sp
 import matplotlib
 import matplotlib.pyplot as plt
 
+from .clones2cells import clones2cells
+
 logg = sc.logging
 
 # Curate public API for tab-completion: only plotting functions
@@ -138,11 +140,12 @@ def pca_loadings(
     adata: sc.AnnData
         Annotated data matrix.
     key: str
-        Key for PCA loadings in `adata.varm`.
+        Key for PCA loadings (genes × components) in `adata.varm`, e.g. "sPCs" from `c2v.tl.spca`
+        or "PCs" from `sc.pp.pca`. Default is "sPCs".
     comp: int
-        Component to plot.
+        Zero-based index of the component to plot. Default is 0.
     n_genes: int
-        Number of genes to plot.
+        Number of genes with the most negative and the most positive loadings to plot. Default is 5.
     kind: Literal["h", "v"]
         Kind of plot, either "h" for horizontal or "v" for vertical.
     ax: matplotlib.axes.Axes | None
@@ -160,8 +163,9 @@ def pca_loadings(
 
     Returns
     -------
-    ax: matplotlib.axes.Axes | None
-        Axes object with the plot.
+    matplotlib.axes.Axes | matplotlib.figure.Figure | None
+        Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
+        otherwise None.
     """
     loadings = pd.Series(adata.varm[key][:, comp], index=adata.var_names).sort_values()
     loadings = pd.concat([loadings[:n_genes], loadings[-n_genes:]])
@@ -392,15 +396,17 @@ def graph(
     adata : sc.AnnData
         AnnData object with graph in obsp[graph_key].
     graph_key : str, optional
-        Key in obsp to store graph. Default is "connectivities".
+        Key in obsp with the graph to draw. Default is "connectivities".
     basis : str, optional
-        Key in obsm to store embedding. Default is "X_umap".
+        Key in obsm with the embedding coordinates. Default is "X_umap".
     oriented : bool, optional
         Whether to draw oriented edges. Default is False.
     ax : matplotlib.axes.Axes, optional
         Axes to draw on. Default is None.
     return_fig : bool, optional
         Whether to return figure. Default is False.
+    show : bool, optional
+        Whether to show the plot. Default is False.
     linewidth : float, optional
         Line width. Default is 1.
     linecolor : str, optional
@@ -410,11 +416,13 @@ def graph(
     arrowstyle : str, optional
         Arrow style. Default is None.
     mutation_scale : float, optional
-        Mutation scale. Default is 10.
+        Size of the arrow heads (matplotlib `FancyArrowPatch` mutation scale). Default is 10.
     width_condition : Callable, optional
-        Function to calculate line width. Default is None.
+        Function `f(adata[start], adata[end])` returning the line width of an edge between
+        two observations. If None, `linewidth` is used. Default is None.
     color_condition : Callable, optional
-        Function to calculate line color. Default is None.
+        Function `f(adata[start], adata[end])` returning the line color of an edge between
+        two observations. If None, `linecolor` is used. Default is None.
     figsize : tuple[float, float], optional
         Figure size. Default is None.
     **kwargs : dict, optional
@@ -423,7 +431,8 @@ def graph(
     Returns
     -------
     matplotlib.axes.Axes | matplotlib.figure.Figure | None
-        Draws with the graph on top.
+        Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
+        otherwise None.
     """
 
     if figsize is None:
@@ -542,6 +551,8 @@ def group_scatter(
         Whether to set the aspect ratio of the plot to be equal. Default is True.
     s : list[float] | float, optional
         Dot size for the highlighted clone. Default is 30.
+    ncols : int, optional
+        Maximum number of panels per row when several groups are plotted. Default is 4.
     kwargs_background : list[dict] | dict | None, optional
         Additional plotting arguments for the background cells.
     kwargs_group : list[dict] | dict | None, optional
@@ -564,7 +575,8 @@ def group_scatter(
     Returns
     -------
     None | matplotlib.figure.Figure | matplotlib.axes.Axes | np.ndarray | list[matplotlib.axes.Axes]
-        Returns Figure if `return_fig` is True; otherwise returns None.
+        Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
+        otherwise None.
     """
     if groups is None:
         try:
@@ -746,7 +758,7 @@ def group_kde(
     basis : str, optional
         Embedding key from `adata.obsm` to use. Default is "X_umap".
     bw_method : list[float | str] | float | str, optional
-        Bandwidth for the KDE. Passed to `scipy.stats.gaussian_kde`. Can be a single value or a list per group. Default is 0.1.
+        Bandwidth for the KDE. Passed to `scipy.stats.gaussian_kde`. Can be a single value or a list per group. Default is 0.15.
     ncols : int, optional
         Number of columns in the subplot grid when plotting multiple groups. Default is 4.
     square : bool, optional
@@ -974,8 +986,8 @@ def loss_history(
     clones : AnnData
         Annotated data matrix containing training statistics in `clones.uns`.
     uns_key : str, optional
-        Key in `clones.uns` that stores a list of mean losses per epoch.
-        Default is "c2v_loss_history".
+        Key in `clones.uns` with clone2vec training details (`c2v.tl.clone2vec`).
+        Default is "clone2vec".
     loss_key : str, optional
         Key in `clones.uns[uns_key]` that stores a list of mean losses per epoch.
         Default is "loss_history".
@@ -991,7 +1003,8 @@ def loss_history(
     Returns
     -------
     None or matplotlib.figure.Figure or list[matplotlib.axes.Axes]
-        The plot figure if `return_fig` is True, or axes if `return_ax` is True, otherwise None.
+        Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
+        otherwise None.
 
     Raises
     -------
@@ -1110,7 +1123,7 @@ def spectral_test(
     observed_label : str, optional
         Legend label of the observed statistic. Default is "Observed statistics".
     legend : bool, optional
-        Whether to draw the legend. Default is True.
+        Whether to draw the legend. Default is False.
     title : str | None, optional
         Title of the plot. Default is None.
     xlabel : str, optional
@@ -1532,17 +1545,27 @@ def clone_size(
         If True, returns the Matplotlib Figure object. Default is False.
     title : str, optional
         Title of the plot. Default is "Clone size distribution".
+    bins : int, optional
+        Number of bins of the clone size histogram. Default is 30.
+    log : bool, optional
+        Whether to use log scale for the histogram counts and for the clone size axis of
+        the cumulative plot. Default is True.
+    alpha : float, optional
+        Opacity of the histogram bars. Default is 1.
+    edgecolor : str, optional
+        Edge color of the histogram bars. Default is "black".
     show : bool, optional
         Whether to show the plot. Default is True.
     figsize : tuple[float, float] | None, optional
         Figure size. Default is None.
     ax : list[matplotlib.axes.Axes] | None, optional
-        List of axes to plot on. Default is None.
+        Two axes to plot the histogram and the cumulative distribution on. Default is None.
 
     Returns
     -------
     None or matplotlib.figure.Figure or list[matplotlib.axes.Axes]
-        The plot figure if `return_fig` is True, or axes if `return_ax` is True, otherwise None.
+        Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
+        otherwise None.
 
     Notes
     -----
@@ -1637,13 +1660,16 @@ def nesting_clones(
         Whether to show the plot. Default is True.
     figsize : tuple[float, float] | None, optional
         Figure size. Default is None.
+    ax : matplotlib.axes.Axes | None, optional
+        Ternary axes (`projection="ternary"` from `mpltern`) to draw on. Default is None.
     return_fig : bool, optional
         Whether to return the figure. Default is False.
 
     Returns
     -------
     None or matplotlib.figure.Figure or matplotlib.axes.Axes
-        Returns Figure if `return_fig` is True, or ax if `return_ax` is True.
+        Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
+        otherwise None.
     """
     try:
         import mpltern
@@ -1836,7 +1862,7 @@ def volcano(
     ylim : tuple[float, float] | None, optional
         y-axis limits. Default is None.
     title : str | None, optional
-        Title of the plot. Default is None.
+        Title of the plot. Default is "Volcano plot".
     xlabel : str | None, optional
         x-axis label. Default is None.
     ylabel : str | None, optional
@@ -2389,6 +2415,12 @@ def shap_volcano(
         Axes object to draw on. Default is None.
     **kwargs
         Additional keyword arguments for `volcano()`.
+
+    Returns
+    -------
+    plt.Figure | matplotlib.axes.Axes | None
+        Same as `c2v.pl.volcano`: figure if `return_fig` is True; the created axes if `show`
+        is False and `ax` is None; otherwise None.
     """
 
     if title is None:
@@ -2449,6 +2481,8 @@ def barplot(
         Minimum value for colormap normalization. Default is 0.
     return_fig : bool, optional
         Whether to return the figure object. Default is False.
+    show : bool, optional
+        Whether to show the plot. Default is True.
     title : str | None, optional
         Title for the plot. Default is None.
     right_spines : bool | None, optional
@@ -2466,7 +2500,7 @@ def barplot(
     edgecolor : str, optional
         Edge color of the bars. Default is "black".
     rotation : float | None, optional
-        Rotation angle for labels, if None rotation depends on the . Default is None.
+        Rotation angle for labels, if None rotation depends on the plot kind. Default is None.
     arrow : list[Literal["right-bottom", "top-left"]] | Literal["right-bottom", "top-left"] | None, optional
         Whether to add arrow to the plot. Default is None.
     **kwargs
@@ -2724,7 +2758,7 @@ def heatmap(
     ylabels : bool, optional
         Whether to show y-axis labels. Default is True.
     sort_columns : bool, optional
-        Whether to hierarchically sort columns for display. Default is False.
+        Whether to hierarchically sort columns for display. Default is True.
     sort_rows : bool, optional
         Whether to hierarchically sort rows for display. Default is False.
     linkage_method : str, optional
@@ -2867,86 +2901,6 @@ def _cmap(
         cm_grey(np.linspace(grey_intensity, 0.2, 1)),
         cm_color(np.linspace(color_intencity, 1, 128)),
     )))
-
-def _prepare_c2c(
-    adata: sc.AnnData,
-    obsm: str,
-    clone_col: str | None = None,
-    color: str | None = None,
-    cmap: str | None = None,
-    palette: str | None = None,
-) -> tuple[pd.DataFrame, str]:
-    """
-    Prepares dataframes for visualization of cells or clones in clones2cells.
-
-    Parameters
-    ----------
-    adata : sc.AnnData
-        Annotated data matrix.
-    obsm : str
-        Name of the obsm matrix to use for visualization.
-    clone_col : str, optional
-        Name of the column in adata.obs that contains clone information.
-        If None, cells will be visualized.
-    color : str, optional
-        Name of the column in adata.obs or adata.raw.obs that contains
-        color information. If None, cells will be visualized in grey.
-    cmap : str, optional
-        Name of the colormap to use for continuous coloring. If None,
-        standard scanpy's procedure for categorical coloring is used.
-    palette : str, optional
-        Name of the palette to use for categorical coloring. If None,
-        standard scanpy's procedure for categorical coloring is used.
-
-    Returns
-    -------
-    df : pd.DataFrame
-        Dataframe with columns "x", "y", "clone" (if clone_col is None) or
-        "cell", "clone" (if clone_col is not None).
-    cmap : str | None
-        Name of the colormap to use for visualization. If None, cells will be
-        visualized in grey.
-    """
-
-    df = pd.DataFrame({
-        "x": adata.obsm[obsm][:, 0],
-        "y": adata.obsm[obsm][:, 1],
-    })
-
-    if clone_col is None:
-        df["clone"] = adata.obs_names.values
-    else:
-        df["cell"] = adata.obs_names.values
-        df["clone"] = adata.obs[clone_col].values
-
-    if color:
-        if adata.raw and not (color in adata.obs.columns):
-            c = adata.raw.obs_vector(color)
-        else:
-            c = adata.obs_vector(color)
-            
-        if not pd.api.types.is_numeric_dtype(c):
-            c = pd.core.arrays.categorical.Categorical(c)
-            if palette is None:
-                sc.pl._utils.add_colors_for_categorical_sample_annotation(adata, color)
-                colors = adata.uns[f"{color}_colors"]
-            else:
-                if type(palette) == dict:
-                    colors = []
-                    for category in c.categories:
-                        colors.append(palette[category])
-                else:
-                    colors = palette
-            cmap = dict(zip(c.categories, colors))
-            df["c"] = c
-        else:
-            if cmap is None:
-                cmap = "viridis"
-            df["c"] = c
-    else:
-        cmap = None
-        
-    return df, cmap
 
 def catboost_performance(
     shapdata: sc.AnnData,
@@ -3157,302 +3111,6 @@ def catboost_performance(
         plt.show()
 
 
-def clones2cells(
-    adata: sc.AnnData,
-    clones: sc.AnnData,
-    obs_name: str | None = None,
-    cells_color: str | None = None,
-    clones_color: str | None = None,
-    mode: Literal["highlight", "filter"] = "highlight",
-    cells_basis: str = "X_umap",
-    clones_basis: str = "X_umap",
-    keep_color: bool = False,
-    bg_color: str = "lightgrey",
-    selected_color: str = "red",
-    cells_cmap: str | None = None,
-    clones_cmap: str | None = None,
-    cells_palette: str | None = None,
-    clones_palette: str | None = None,
-    s_cells_bg: int = 1,
-    s_cells_selected: int = 2,
-    s_clones: int = 6,
-    width: float = "auto",
-    height: float = 400,
-    axes: bool = False,
-    norm_clones: tuple[float, float] | None = None,
-    norm_cells: tuple[float, float] | None = None,
-) -> None:
-    """
-    Draws two interactive sctterplots with gene expression (left) and clonal (right) embeddings.
-    Selection on the right plot leads to the highliting (`mode='highlight'`) or filtering (`mode='filter'`)
-    of cells from the corresponding clones. Selection on the left plot leads to coloring the right plot
-    by the proportion of selected cells in clones.
-
-    Parameters
-    ----------
-    adata : sc.AnnData
-        Annotated data matrix with gene expression.
-    clones : sc.AnnData
-        Annotated data matrix with clonal embeddings.
-    obs_name : str, optional
-        Name of column in `clones.obs` with clone labels in gene expression AnnData.
-        If not provided, will be taken from `clones.uns["obs_name"]`.
-    cells_color : str, optional
-        Name of column in `adata.obs` with cells colors. If not provided,
-        cells will be colored in `bg_color`.
-    clones_color : str, optional
-        Name of column in `clones.obs` with clones colors. If not provided,
-        clones will be colored in `bg_color`.
-    mode : {"highlight", "filter"}, optional
-        Whether to highlight (`mode='highlight'`) or filter (`mode='filter'`) cells
-        from the selected clones.
-    cells_basis : str, optional
-        Name of key in `adata.obsm` with cells embeddings.
-    clones_basis : str, optional
-        Name of key in `clones.obsm` with clonal embeddings.
-    keep_color : bool, optional
-        Whether to keep color of cells in `cells_color` for `mode='highlight'`.
-    bg_color : str, optional
-        Color of unselected cells or clones.
-    selected_color : str, optional
-        Color of selected cells if `mode='highlight'` and `keep_color=False`.
-    cells_cmap : str, optional
-        Continuous color map for cells.
-    clones_cmap : str, optional
-        Continuous color map for clones.
-    cells_palette : str, optional
-        Palette (discrete colormap) for cells. If None, standard scanpy's procedure
-        for categorical coloring is used.
-    clones_palette : str, optional
-        Palette (discrete colormap) for clones. If None, standard scanpy's procedure
-        for categorical coloring is used.
-    s_cells_bg : int, optional
-        Size of unselected cells.
-    s_cells_selected : int, optional
-        Size of selected cells.
-    s_clones : int, optional
-        Size of clones.
-    width : float, optional
-        Width of widget.
-    height : float, optional
-        Height of widget.
-    axes : bool, optional
-        Whether to show axes.
-    norm_clones : tuple[float, float], optional
-        Range of values for clonal embeddings normalization.
-    norm_cells : tuple[float, float], optional
-        Range of values for gene expression embeddings normalization.
-
-    Returns
-    -------
-    None
-    """
-    try:
-        import ipywidgets as widgets
-        import jscatter as js
-        from IPython.display import display
-    except ImportError:
-        raise ImportError("`ipywidgets` and `jscatter` are required for clones2cells. Please install them via pip: `pip install ipywidgets jscatter`.")
-
-    logg.warning("Widget might be displayed incorrectly in Safari browser")
-    
-    if obs_name is None:
-        obs_name = clones.uns["obs_name"]
-        
-    df_gex, cmap_gex = _prepare_c2c(
-        adata=adata,
-        obsm=cells_basis,
-        clone_col=obs_name,
-        color=cells_color,
-        cmap=cells_cmap,
-        palette=cells_palette,
-    )
-    
-    if cmap_gex:
-        df_gex = df_gex.sort_values("c")
-
-    df_clones, cmap_clones = _prepare_c2c(
-        adata=clones,
-        obsm=clones_basis,
-        color=clones_color,
-        cmap=clones_cmap,
-        palette=clones_palette,
-    )
-    if cmap_clones:
-        df_clones = df_clones.sort_values("c")
-
-    if cmap_gex and (type(cmap_gex) != dict) and (mode == "highlight"):
-        if keep_color:
-            logg.warning("`keep_color=True` isn't supported in `mode='highlight'`. Switching to `keep_color=False`")
-            keep_color = False
-        cat_gex = False
-    else:
-        cat_gex = True
-
-    if (mode == "highlight") and (cmap_gex is None):
-        keep_color = False
-
-    clones_whitelist = df_clones["clone"].values
-    clone_sizes = df_gex["clone"].value_counts()[clones_whitelist]
-
-    if mode == "highlight":
-        in_clones = df_gex.clone.isin(clones_whitelist).values
-        
-        bg_mask = np.array([True] * len(df_gex) + [False] * sum(in_clones))
-        bg_idx = np.argwhere(bg_mask).T[0]
-
-        clone_mask = ~bg_mask
-        clone_idx = np.argwhere(clone_mask).T[0]
-        
-        df_gex = pd.concat([df_gex, df_gex[in_clones]]).reset_index(drop=True)
-        
-        if keep_color:
-            df_gex["c_select"] = df_gex["c"].astype(str).copy()
-            df_gex.loc[bg_mask, "c_select"] = "Unselected cells"
-            df_gex["c_select"] = df_gex["c_select"].astype("category")
-            df_gex["c_select"] = df_gex["c_select"].cat.reorder_categories(
-                list(df_gex["c"].cat.categories) + ["Unselected cells"]
-            )
-            
-            cmap_select = cmap_gex.copy()
-            cmap_select["Unselected cells"] = bg_color
-
-            df_gex["s_select"] = "Cells in clones"
-            df_gex.loc[bg_mask, "s_select"] = "Unselected cells"
-            df_gex["s_select"] = df_gex["s_select"].astype("category")
-
-            size_select = {
-                "Unselected cells": s_cells_bg,
-                "Cells in clones": s_cells_selected,
-            }
-        else:
-            df_gex["c_select"] = "Cells in clones"
-            df_gex.loc[bg_mask, "c_select"] = "Unselected cells"
-            df_gex["c_select"] = df_gex["c_select"].astype("category")
-            
-            cmap_select = {
-                "Unselected cells": bg_color,
-                "Cells in clones": selected_color,
-            }
-            
-            df_gex["s_select"] = "Cells in clones"
-            df_gex.loc[bg_mask, "s_select"] = "Unselected cells"
-            df_gex["s_select"] = df_gex["s_select"].astype("category")
-
-            size_select = {
-                "Unselected cells": s_cells_bg,
-                "Cells in clones": s_cells_selected,
-            }
-    else:
-        bg_idx = None
-
-    if cmap_gex is None:
-        df_gex["c"] = "Unselected cells"
-        cmap_gex = {"Unselected cells": bg_color}
-        gex_legend = False
-    else:
-        gex_legend = True
-        
-    scatter_gex = js.Scatter(x="x", y="y", width=width, height=height, opacity=1,
-                             size=s_cells_bg, data=df_gex, axes=axes)
-
-    scatter_gex.color(by="c", map=cmap_gex, labeling={"variable": None}, norm=norm_cells)
-    scatter_gex.filter(bg_idx)
-    scatter_gex.size(s_cells_bg)
-    scatter_gex.legend(legend=gex_legend)
-
-    if cmap_clones is None:
-        df_clones["c"] = "Unselected"
-        cmap_clones = {"Unselected": bg_color}
-        clones_legend = False
-    else:
-        clones_legend = True
-
-    if pd.api.types.is_numeric_dtype(df_clones["c"]):
-        if norm_clones is None:
-            norm_clones = (df_clones["c"].min(), df_clones["c"].max())
-
-    scatter_c2v = js.Scatter(x="x", y="y", width=width, height=height, opacity=1,
-                             size=s_clones, data=df_clones, axes=axes)
-
-    scatter_c2v.color(by="c", map=cmap_clones, labeling={"variable": None}, norm=norm_clones)
-    scatter_c2v.legend(clones_legend)
-
-    def c2v_selection(change):
-        if len(change.new) == 0:
-            scatter_gex.color(by="c", map=cmap_gex, labeling={"variable": None}, norm=norm_cells)
-            scatter_gex.filter(bg_idx)
-            scatter_gex.size(s_cells_bg)
-            scatter_gex.legend(gex_legend)
-        else:
-            clones.uns["clones2cells"] = {"last_selection": df_clones.clone.values[change.new]}
-            if mode == "filter":
-                selected_clones = df_clones.clone.values[change.new]
-                selected_cells = np.argwhere(df_gex.clone.isin(selected_clones)).T[0]
-                scatter_gex.filter(selected_cells)
-                scatter_gex.size(s_cells_selected)
-            else:
-                scatter_gex.legend(False)
-                selected_clones = df_clones.clone.values[change.new]
-                selected_cells = np.argwhere(
-                    df_gex.clone.isin(selected_clones) | bg_mask
-                ).T[0]
-                
-                scatter_gex.color(by="c_select", map=cmap_select, norm=norm_cells)
-                scatter_gex.size(by="s_select", map=size_select)
-                scatter_gex.filter(selected_cells)
-
-    scatter_c2v.widget.observe(c2v_selection, names=["selection"])
-    
-    if clones_cmap is None:
-        clones_cmap = "viridis"
-
-    def gex_selection(change):
-        if len(change.new) == 0:
-            scatter_c2v.color(by="c", map=cmap_clones, labeling={"variable": None}, norm=norm_clones)
-            scatter_c2v.legend(clones_legend)
-        else:
-            selected_cell_bcs = df_gex.cell.values[change.new]
-            selected_cell_bcs = np.array(list(set(selected_cell_bcs)))
-            adata.uns["clones2cells"] = {"last_selection": selected_cell_bcs}
-            if mode == "filter":
-                df_clones["proportions_selected"] = (
-                    df_gex.iloc[change.new].clone.value_counts()[clones_whitelist] /
-                    clone_sizes
-                )[df_clones.clone.values] * 100
-                scatter_c2v.color(
-                    by="proportions_selected",
-                    map=clones_cmap,
-                    norm=(0, df_clones["proportions_selected"].max()),
-                    labeling={"variable": "% of selected"}
-                )
-                scatter_c2v.legend(legend=True)
-            else:
-                selected_mask = np.array([False] * len(df_gex))
-                selected_mask[change.new] = True
-                
-                df_clones["proportions_selected"] = (
-                    df_gex
-                        .iloc[selected_mask]
-                        .clone.value_counts()[clones_whitelist] /
-                    clone_sizes
-                )[df_clones.clone].values.astype(float) * 100
-                
-                scatter_c2v.color(
-                    by="proportions_selected",
-                    map=clones_cmap,
-                    norm=(0, df_clones["proportions_selected"].max()),
-                    labeling={"variable": "% of selected"}
-                )
-                scatter_c2v.legend(legend=True)
-    
-    scatter_gex.widget.observe(gex_selection, names=["selection"])
-
-    display(js.compose([
-        (scatter_gex, "Gene expression embedding"),
-        (scatter_c2v, "Clonal embedding"),
-    ], row_height=height))
-
 def small_cbar(
     axes: matplotlib.axes.Axes | list[matplotlib.axes.Axes],
     width: float = 0.03,
@@ -3464,10 +3122,11 @@ def small_cbar(
     show_numbers: bool = True,
 ):
     """
-    Adds small colorbars to the right of the specified axes.
-    
-    Parameters:
-    -----------
+    Replaces existing colorbars of the specified axes with small colorbars inside their
+    right edge, labelled only with the minimum and maximum values.
+
+    Parameters
+    ----------
     axes : matplotlib.axes.Axes | list[matplotlib.axes.Axes]
         The axes object(s) to draw on (e.g., fig.axes[0]).
     width : float, optional
@@ -3483,7 +3142,13 @@ def small_cbar(
     y_pad : float, optional
         Padding from the top edge (0.0 to 1.0). Default 0%.
     show_numbers : bool, optional
-        Whether to show numeric tick labels. Default True.
+        Whether to show numeric tick labels. If False, ticks are labelled "Min" and "Max".
+        Default True.
+
+    Returns
+    -------
+    None
+        The axes are modified in place.
     """
     if not isinstance(axes, Iterable):
         axes = [axes]
@@ -3533,16 +3198,17 @@ def embedding_axis(
 ):
     """
     Adds two perpendicular arrows (L-shape) to the bottom-left corner of the plot
-    to mimic standard single-cell embedding visualizations (Seurat/Scanpy).
-    
-    Parameters:
-    -----------
+    to mimic standard single-cell embedding visualizations (Seurat/Scanpy). The regular
+    axes frame and ticks are hidden.
+
+    Parameters
+    ----------
     axes : matplotlib.axes.Axes | list[matplotlib.axes.Axes]
         The axes object to draw on (e.g., fig.axes[0]).
     x_offset : float, optional
-        Distance from left edge (0.0 to 1.0). Default 5%.
+        Distance from left edge (0.0 to 1.0). Default 0.
     y_offset : float, optional
-        Distance from bottom edge (0.0 to 1.0). Default 5%.
+        Distance from bottom edge (0.0 to 1.0). Default 0.
     length : float, optional
         Length of the arrows as a fraction of the axes size. Default 15%.
     arrow_width : float, optional
@@ -3559,6 +3225,11 @@ def embedding_axis(
         Label for the vertical arrow. If None, label + " 2" is used. Default None.
     font_size : int, optional
         Size of the text labels. Default 10.
+
+    Returns
+    -------
+    None
+        The axes are modified in place.
     """
     if not isinstance(axes, Iterable):
         axes = [axes]
@@ -3619,18 +3290,33 @@ def fancy_legend(
     **kwargs,
 ):
     """
-    Adds a legend to the plot with cluster labels aligned to the cluster centers.
-    
-    Parameters:
-    -----------
+    Replaces the legend of a categorical scatter plot with labels placed next to the cluster
+    centers (median of the points of each legend color). Requires `textalloc`.
+
+    Parameters
+    ----------
     axes : matplotlib.axes.Axes | list[matplotlib.axes.Axes]
-        The axes object to draw on (e.g., fig.axes[0]).
+        The axes object to draw on (e.g., fig.axes[0]); must contain a legend.
     textsize : int, optional
         Size of the text labels. Default 10.
     fontweight : str, optional
         Font weight of the text labels. Default "normal".
+    center_loc : bool, optional
+        If True, labels are put exactly at the cluster centers; otherwise they are placed
+        near the centers avoiding overlaps with points and other labels. Default False.
+    line : bool, optional
+        Whether to draw lines connecting labels to the cluster centers (only if
+        `center_loc` is False). Default False.
+    max_distance : float, optional
+        Maximum distance of a label from its cluster center as a fraction of the axes size
+        (only if `center_loc` is False). Default 0.2.
     **kwargs : dict, optional
-        Additional keyword arguments passed to textalloc.alloc().
+        Additional keyword arguments passed to `textalloc.allocate()`.
+
+    Returns
+    -------
+    None
+        The axes are modified in place.
     """
 
     import textalloc as ta
@@ -3851,9 +3537,9 @@ def scatter2vars(
     adata : sc.AnnData
         Annotated data matrix.
     var1 : str
-        Key for variable 1.
+        First variable: a gene name or a column in `adata.obs`, shown in color `c1`.
     var2 : str
-        Key for variable 2.
+        Second variable: a gene name or a column in `adata.obs`, shown in color `c2`.
     clip1 : tuple[float, float] | None
         Clip values for variable 1. Default is None.
     clip2 : tuple[float, float] | None

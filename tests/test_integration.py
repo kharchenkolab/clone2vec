@@ -89,6 +89,34 @@ def test_align_produces_adjusted_representation(clones_dense):
     changed = np.any(np.abs(Z_adj[mask_query] - Z_orig[mask_query]) > 1e-8)
     assert changed
 
+def test_find_mnn_k_trim(clones_dense):
+    nnz = {}
+    for k_trim in [1, 5]:
+        clones = clones_dense.copy()
+        c2v.tl.find_mnn(clones, batch_key="batch", use_rep="X_pca", k=10, k_trim=k_trim, progress_bar=False)
+        assert clones.uns["simple_mnn"]["k_trim"] == k_trim
+        nnz[k_trim] = clones.obsp["mnn"].nnz
+    assert 0 < nnz[1] < nnz[5]
+
+def test_align_weighted_vs_unweighted(clones_dense):
+    clones = clones_dense.copy()
+    c2v.tl.find_mnn(clones, batch_key="batch", use_rep="X_pca", k=5, progress_bar=False)
+    clones.obsm["clone2vec"] = np.array(clones.obsm["X_pca"])
+    c2v.tl.align(clones, adj_rep="weighted", weighted=True)
+    c2v.tl.align(clones, adj_rep="unweighted", weighted=False)
+
+    assert np.all(np.isfinite(clones.obsm["unweighted"]))
+    assert not np.allclose(clones.obsm["weighted"], clones.obsm["unweighted"])
+    majority = clones.obs["batch"].value_counts().idxmax()
+    ref = clones.obs["batch"].values == majority
+    assert np.allclose(clones.obsm["unweighted"][ref], clones.obsm["clone2vec"][ref])
+
+def test_align_requires_anchors(clones_dense):
+    clones = clones_dense.copy()
+    clones.obsm["clone2vec"] = np.array(clones.obsm["X_pca"])
+    with pytest.raises(KeyError):
+        c2v.tl.align(clones, uns_key="absent")
+
 # ===== internal helpers round-trip =====
 
 def test_order_write_read_round_trip():

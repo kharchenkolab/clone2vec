@@ -258,6 +258,9 @@ def find_mnn(
         Key in `clones.obsm` containing representation to use for anchor finding, by default "X_pca".
     k : int, optional
         Number of nearest neighbors to use for anchor finding, by default 10.
+    k_trim : int, optional
+        Maximum number of MNN partners kept per clone (the ones with the smallest
+        sum of mutual neighbour ranks), by default 3.
     metric : str, optional
         Distance metric to use for anchor finding, by default "euclidean".
     uns_key : str, optional
@@ -441,7 +444,10 @@ def align(
     weighted: bool = True,
 ) -> None:
     """
-    Align clones.obsm[use_rep] using MNNs found in `clones.uns[uns_key]` via procrustes alignment (PA).
+    Align clones.obsm[use_rep] across batches using MNN anchors found by `c2v.tl.find_mnn`
+    (stored in `clones.uns[uns_key]`). Batches are merged one by one following the integration
+    order, and each smaller batch is mapped onto the larger one with an affine transformation
+    fitted by (weighted) least squares on the anchor pairs.
 
     Parameters
     ----------
@@ -453,6 +459,9 @@ def align(
         Key in `clones.obsm` to store aligned representation, by default "clone2vec_pa".
     uns_key : str, optional
         Key in `clones.uns` containing anchor information, by default "simple_mnn".
+    weighted : bool, optional
+        Whether to weight anchor pairs by their MNN graph weights (higher for pairs that are
+        closer in each other's neighbour lists) when fitting the transformation, by default True.
 
     Returns
     -------

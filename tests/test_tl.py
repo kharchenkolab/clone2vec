@@ -169,8 +169,8 @@ def test_clonal_nn_split_by(adata, clones_with_pca):
 
 # ===== tl.clonocluster tests =====
 
-def test_clonocluster(adata_with_graph_dense):
-    ad = adata_with_graph_dense.copy()
+def _with_lineage_graph(adata):
+    ad = adata.copy()
     # Build a synthetic lineage graph in obsp
     n = ad.n_obs
     rng = np.random.RandomState(42)
@@ -182,10 +182,33 @@ def test_clonocluster(adata_with_graph_dense):
     # Ensure use_rep is in neighbors params (not always set by sc.pp.neighbors)
     if "use_rep" not in ad.uns.get("neighbors", {}).get("params", {}):
         ad.uns["neighbors"]["params"]["use_rep"] = "X_pca"
+    return ad
+
+def test_clonocluster(adata_with_graph_dense):
+    ad = _with_lineage_graph(adata_with_graph_dense)
     c2v.tl.clonocluster(ad, alpha=0.2, beta=0.1, key_added="cc", lineage_graph="connected")
     assert "cc_connectivities" in ad.obsp
     assert "cc" in ad.uns
     assert ad.uns["cc"]["connectivities_key"] == "cc_connectivities"
+
+    conn = ad.obsp["connectivities"]
+    expected = 0.2 ** 0.1 * (ad.obsp["connected"] - conn) + conn
+    assert abs(ad.obsp["cc_connectivities"] - expected).max() < 1e-10
+
+def test_clonocluster_alpha_one_gives_lineage(adata_with_graph_dense):
+    ad = _with_lineage_graph(adata_with_graph_dense)
+    c2v.tl.clonocluster(ad, alpha=1, beta=0.5, lineage_graph="connected")
+    assert abs(ad.obsp["clonocluster_connectivities"] - ad.obsp["connected"]).max() < 1e-10
+
+def test_clonocluster_invalid_beta(adata_with_graph_dense):
+    ad = _with_lineage_graph(adata_with_graph_dense)
+    with pytest.raises(ValueError):
+        c2v.tl.clonocluster(ad, alpha=0.2, beta=2, lineage_graph="connected")
+
+def test_clonocluster_invalid_alpha(adata_with_graph_dense):
+    ad = _with_lineage_graph(adata_with_graph_dense)
+    with pytest.raises(ValueError):
+        c2v.tl.clonocluster(ad, alpha=2, beta=0.1, lineage_graph="connected")
 
 
 # ===== tl.group_connectivity tests =====

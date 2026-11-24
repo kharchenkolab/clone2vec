@@ -288,11 +288,16 @@ def transfer_annotation(
     clones : AnnData
         Annotated data matrix at the clone level.
     annotation_obs_clones : str | list[str] | None, optional
-        Column(s) in `clones.obs` containing clonal labels, by default None.
+        Column(s) in `clones.obs` to transfer to `adata.obs` (clones to cells), by default None.
     annotation_obs_adata : str | list[str] | None, optional
-        Name of the new column(s) in `adata.obs` to store transferred clonal labels, by default None.
+        Column(s) in `adata.obs` to transfer to `clones.obs` (cells to clones). Each clone must
+        map to a single value, by default None.
+    created_obs_name : str | list[str] | None, optional
+        Name(s) of the created column(s), one per transferred column. If None, uses
+        "c2v_<column>" for clones to cells and "gex_<column>" for cells to clones, by default None.
     obs_name : str | None, optional
-        Column in `adata.obs` with the original clonal information, by default None.
+        Column in `adata.obs` with the original clonal information. If None, uses
+        `clones.uns["obs_name"]`, by default None.
     na_value : str | None, optional
         Value to assign to cells with no matching clone in the `clones` object, by default "NA".
 
@@ -407,6 +412,10 @@ def transfer_expression(
     split_obs : str | None, optional
         Column name in `adata.obs` to split the data for aggregation. If None,
         the entire dataset is used for aggregation, default None.
+    use_col : str | None, optional
+        Column in `clones.obs` that groups clones (e.g. clonal clusters). If provided, expression
+        is pooled over all cells of the clones in a group and every clone receives its group's
+        profile, by default None.
     strategy : Literal["sum", "average"], optional
         Strategy for aggregating gene expression ("sum" or "average"), by default "average".
     layer : str | None, optional
@@ -414,8 +423,8 @@ def transfer_expression(
     use_raw : bool | None, optional
         If specified, uses `adata.raw.X` for summarization, by default None.
     layers_to_obsm : list[str] | str | None, optional
-        List of layers in `clones.layers` to transfer to `clones_expr.obsm`.
-        If None, all layers with `adata.X` are transferred, by default None.
+        Layers of `clones` ("X" for `clones.X`) to keep as DataFrames in `.obsm` of the returned
+        object. If None, `clones.X` and all `clones.layers` are kept, by default None.
     presence_key : str, optional
         Key in `clones_expr.obsm` for the table with numbers of cells of each `split_obs`
         group per clone (only used if `split_obs` is provided), by default "group_presence".
@@ -429,11 +438,12 @@ def transfer_expression(
     Returns
     -------
     AnnData
-        Annotated data matrix at the clone level with summarized gene expression.
-        The strategy used for aggregation is stored in `clones.uns["transfer_expression"]["strategy"]`.
-        If `split_obs` is provided, the aggregation is performed within each group defined by `split_obs` and stored
-        in `clones.layers[g]` where `g` is the group name. Clones without a matching group in `split_obs` contain
-        NaN values in this layer if `absent_expression` is "nan", otherwise they contain zero expression.
+        Annotated data matrix at the clone level with summarized gene expression in `.X`
+        and the number of aggregated cells in `.obs["n_cells_expr"]`. Aggregation parameters are
+        stored in `.uns["transfer_expression"]`. If `split_obs` is provided, the aggregation is
+        also performed within each group defined by `split_obs` and stored in `.layers[g]` where
+        `g` is the group name; clones without cells of that group contain NaN (dense input) or
+        zeros (sparse input). Clones without any expression are removed.
     """
     if obs_name is None:
         try:
@@ -492,6 +502,10 @@ def transfer_expression(
         X = adata.X
         var_names = adata.var_names
         line_before = "\n    using `adata.X` as expression source"
+
+    # np.add.at fails on AnnData's ArrayView (e.g. after masking)
+    if not sp.issparse(X):
+        X = np.asarray(X)
 
     start = logg.info("summarizing expression at clone level", deep=line_before)
 

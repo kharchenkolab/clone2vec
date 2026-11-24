@@ -561,35 +561,48 @@ def clone2vec(
     Parameters
     ----------
     clones : AnnData
-        The clone-level AnnData object, typically from `create_clone_adata`.
+        The clone-level AnnData object, typically from `c2v.pp.clones_adata`.
     z_dim : int, optional
         Dimensionality of the clonal embedding, by default 10.
     obsp_key : str, optional
         Key in `clones.obsp` for the graph to use, by default "gex_adjacency".
+    mask_key : str | None, optional
+        Key in `clones.obsm` with an additional clone-by-feature matrix (e.g. masked cell
+        counts from `c2v.tl.mask_heterogeneity`) appended as extra columns to the graph
+        before fitting, by default None.
     max_iter : int, optional
         Maximum number of iterations for optimization, by default 500.
     learning_rate : float | None, optional
         Learning rate for optimization, by default 0.001.
     device : str | None, optional
-        Device to use for computation, by default None.
+        Torch device to use for computation (e.g. "cpu", "cuda"), by default None
+        (picked automatically).
     progress_bar : bool, optional
         Whether to show a progress bar, by default True.
     obsm_key : str, optional
-        Key in `clones.obsm` to store the embeddings, by default "c2v".
-    uns_key: str, optional
-        Key in `clones.uns` to store the results, by default "c2v".
+        Key in `clones.obsm` to store the embeddings, by default "clone2vec".
+    uns_key : str, optional
+        Key in `clones.uns` to store the training details (model weights, loss history),
+        by default "clone2vec".
     random_state : None | int, optional
         Random state for reproducibility, by default 4.
     init : Literal["svd", "random", "custom"], optional
-        Initialization method, if "svd", uses SVD on the log1p-transformed counts, by default "svd".
+        Initialization method, if "svd", uses SVD on the log1p-transformed counts, if "custom",
+        uses `clones.obsm[init_obsm]`, by default "svd".
     init_obsm : str | None, optional
-        Key in `clones.obsm` for custom initialization, by default None.
+        Key in `clones.obsm` for custom initialization (must have `z_dim` columns), by default None.
     batch_size : int, optional
         Batch size for optimization, by default 128.
     early_stopping_patience : int, optional
         Number of iterations with no improvement to wait before stopping, by default 5.
     early_stopping_min_delta : float, optional
         Minimum change in loss to qualify as an improvement, by default 1e-4.
+
+    Returns
+    -------
+    None
+        Adds the embedding to `clones.obsm[obsm_key]` and the training details to
+        `clones.uns[uns_key]`.
     """
     start = logg.info("fitting clone2vec embeddings")
     if obsp_key not in clones.obsp:
@@ -715,11 +728,15 @@ def clone2vec_Poi(
     Parameters
     ----------
     clones : AnnData
-        The clone-level AnnData object, typically from `create_clone_adata`.
+        The clone-level AnnData object, typically from `c2v.pp.clones_adata`.
     z_dim : int, optional
         Dimensionality of the clonal embedding, by default 10.
     obsp_key : str, optional
         Key in `clones.obsp` for the graph to use, by default "gex_adjacency".
+    mask_key : str | None, optional
+        Key in `clones.obsm` with an additional clone-by-feature matrix (e.g. masked cell
+        counts from `c2v.tl.mask_heterogeneity`) appended as extra columns to the graph
+        before fitting, by default None.
     max_iter : int, optional
         Maximum number of iterations for optimization, by default 500.
     tol : float, optional
@@ -732,7 +749,7 @@ def clone2vec_Poi(
         Whether to show a progress bar, by default True.
     obsm_key : str, optional
         Key in `clones.obsm` to store the embeddings, by default "clone2vec_Poi".
-    uns_key: str, optional
+    uns_key : str, optional
         Key in `clones.uns` to store the model parameters, by default "clone2vec_Poi".
     random_state : None | int, optional
         Random state for reproducibility, by default 4.
@@ -753,16 +770,17 @@ def clone2vec_Poi(
     max_backtracks : int, optional
         Maximum number of backtracking retries per iteration when log-likelihood decreases. Default is 3.
     batch_size_rows : int | None, optional
-        Batch size for rows, by default None.
+        Number of rows (clones) per mini-batch, by default None (full batch).
     batch_size_cols : int | None, optional
-        Batch size for columns, by default None.
+        Number of columns (neighbour clones) per mini-batch, by default None (full batch).
     init : str, optional
-        Initialization method, by default "svd".
+        Initialization method passed to `fastglmpca.poisson`, by default "svd".
 
     Returns
     -------
-    None | torch.nn.Module
-        If `return_model` is True, returns the trained model.
+    None
+        Adds the embedding to `clones.obsm[obsm_key]` and the model parameters to
+        `clones.uns[uns_key]`.
     """
     try:
         import fastglmpca
@@ -924,17 +942,23 @@ def project_clone2vec(
     Parameters
     ----------
     clones_query : sc.AnnData
-        The query clone-level AnnData object, typically from `create_clone_adata`.
+        The query clone-level AnnData object, typically from `c2v.pp.clones_adata`.
     clones_ref : sc.AnnData
-        The reference clone-level AnnData object, typically from `create_clone_adata`.
+        The reference clone-level AnnData object, typically from `c2v.pp.clones_adata`.
     obsm_key_query : str, optional
-        Key in `clones_query.obsm` for the graph to use, by default "ref_gex_adjacency".
+        Key in `clones_query.obsm` with the query-to-reference neighbour counts (columns are
+        reference clones), by default "ref_gex_adjacency".
     uns_key_query : str, optional
-        Key in `clones_query.uns` to store the model parameters, by default "clone2vec".
+        Key in `clones_query.uns` to store the training details, by default "clone2vec".
     uns_key_ref : str, optional
-        Key in `clones_ref.uns` to store the model parameters, by default "clone2vec".
+        Key in `clones_ref.uns` with the fitted reference model from `c2v.tl.clone2vec`,
+        by default "clone2vec".
     obsm_key : str, optional
         Key in `clones_query.obsm` to store the embeddings, by default "clone2vec".
+    mask_key : str | None, optional
+        Key in `clones_query.obsm` with an additional matrix appended as extra columns to the
+        neighbour counts; output weights for these columns are initialised with zeros,
+        by default None.
     random_state : None | int, optional
         Random state for reproducibility, by default 42.
     batch_size : int, optional
@@ -951,6 +975,12 @@ def project_clone2vec(
         Whether to show a progress bar, by default True.
     max_iter : int, optional
         Maximum number of iterations, by default 500.
+
+    Returns
+    -------
+    None
+        Adds the projected embedding to `clones_query.obsm[obsm_key]` and the training
+        details to `clones_query.uns[uns_key_query]`.
     """
     start = logg.info("projecting clone2vec embeddings onto reference")
     start_time = time.time()
@@ -1057,17 +1087,22 @@ def project_clone2vec_Poi(
     Parameters
     ----------
     clones_query : AnnData
-        The query clone-level AnnData object, typically from `create_clone_adata`.
+        The query clone-level AnnData object, typically from `c2v.pp.clones_adata`.
     clones_ref : AnnData
-        The reference clone-level AnnData object, typically from `create_clone_adata`.
+        The reference clone-level AnnData object, typically from `c2v.pp.clones_adata`.
     obsm_key_query : str, optional
-        Key in `clones_query.obsm` for the graph to use, by default "ref_gex_adjacency".
+        Key in `clones_query.obsm` with the query-to-reference neighbour counts (columns are
+        reference clones), by default "ref_gex_adjacency".
     uns_key_query : str, optional
-        Key in `clones_query.uns` to store the model parameters, by default "clone2vec".
+        Key in `clones_query.uns` to store the training details, by default "clone2vec_Poi_project".
     uns_key_ref : str, optional
-        Key in `clones_ref.uns` to store the model parameters, by default "clone2vec".
+        Key in `clones_ref.uns` with the fitted reference model from `c2v.tl.clone2vec_Poi`,
+        by default "clone2vec_Poi".
     obsm_key : str, optional
-        Key in `clones_query.obsm` to store the embeddings, by default "clone2vec".
+        Key in `clones_query.obsm` to store the embeddings, by default "clone2vec_Poi".
+    mask_key : str | None, optional
+        Key in `clones_query.obsm` with an additional matrix appended as extra columns to the
+        neighbour counts; loadings for these columns are initialised with zeros, by default None.
     max_iter : int, optional
         Maximum number of iterations, by default 500.
     tol : float, optional
@@ -1081,7 +1116,13 @@ def project_clone2vec_Poi(
     init : str, optional
         Initialization method for the model, by default "svd".
     **kwargs
-        Additional keyword arguments for the model.
+        Currently ignored.
+
+    Returns
+    -------
+    None
+        Adds the projected embedding to `clones_query.obsm[obsm_key]` and the training
+        details to `clones_query.uns[uns_key_query]`.
     """
     try:
         import fastglmpca
@@ -1107,10 +1148,10 @@ def project_clone2vec_Poi(
             extra_cols = (M_tmp.values if isinstance(M_tmp, pd.DataFrame) else M_tmp).shape[1]
         except KeyError:
             extra_cols = 0
+    model.col_offset = params["weights"]["col_offset"]
     if extra_cols > 0:
         model.V = np.vstack([model.V, np.zeros((extra_cols, model.V.shape[1]), dtype=model.V.dtype)])
-        model.d = np.concatenate([model.d, np.zeros(extra_cols, dtype=model.d.dtype)])
-    model.col_offset = params["weights"]["col_offset"]
+        model.col_offset = np.concatenate([model.col_offset, np.zeros(extra_cols, dtype=model.col_offset.dtype)])
     if "row_offset" in params["weights"]:
         model.row_offset = params["weights"]["row_offset"]
 

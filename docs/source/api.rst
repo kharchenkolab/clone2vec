@@ -14,6 +14,7 @@ Datasets
    datasets.Erickson_murine_development
    datasets.Liu_NSCLC_CD8
    datasets.Ireland_SCLC
+   datasets.Lareau_in_vitro
 
 Preprocessing
 -------------

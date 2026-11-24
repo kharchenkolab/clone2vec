@@ -101,10 +101,12 @@ def test_associations_layers(matrix_kind, adata_small_dense, adata_small_sparse)
     assert "X_umap:l2:pearson:pvalue" in ad.varm
     assert "X_umap:l2:pearson:p_adj" in ad.varm
 
-def test_associations_layers_concat(adata_small_dense):
+@pytest.mark.parametrize("matrix_kind", ["dense", "sparse"])
+def test_associations_layers_concat(matrix_kind, adata_small_dense):
     ad = adata_small_dense.copy()
-    ad.layers["l1"] = ad.X.copy()
-    ad.layers["l2"] = ad.X.copy()
+    X = ad.X if matrix_kind == "dense" else sp.csr_matrix(ad.X)
+    ad.layers["l1"] = X.copy()
+    ad.layers["l2"] = X.copy()
     ad.obsm["X_umap"] = np.random.RandomState(2).rand(ad.n_obs, 1)
     c2v.tl.associations(
         ad,
@@ -119,6 +121,7 @@ def test_associations_layers_concat(adata_small_dense):
     assert "X_umap:multi_layer:pearson:r" in ad.varm
     assert "X_umap:multi_layer:pearson:pvalue" in ad.varm
     assert "X_umap:multi_layer:pearson:p_adj" in ad.varm
+    assert ad.varm["X_umap:multi_layer:pearson:r"].shape == (ad.n_vars, 1)
 
 def test_associations_use_raw(adata_small_dense):
     ad = adata_small_dense.copy()
@@ -456,3 +459,20 @@ def test_fast_corr_constant_column_is_nan():
     res = c2v.tl.fast_corr(X, rng.standard_normal((30, 1)), progress_bar=False)
     assert np.isnan(res["r"][0, 0])
     assert np.isfinite(res["r"][1, 0])
+
+
+def test_catboost_min_size_drops_rare_fates(adata_small_dense):
+    ad = adata_small_dense[:, :30].copy()
+    _add_validation_split(ad, frac=0.3)
+    rng = np.random.RandomState(0)
+    Y = rng.rand(ad.n_obs, 3)
+    Y[:, 2] = 0
+    Y[:2, 2] = 1
+    ad.obsm["fates"] = pd.DataFrame(Y, index=ad.obs_names, columns=["f1", "f2", "rare"])
+    shapdata = c2v.tl.catboost(
+        ad, obsm_key="fates", validation_key="valid_split", validation_value="sketch",
+        min_size=3, use_gpu=False, num_trees=10, early_stopping_rounds=5, verbose=False,
+        progress_bar=False, random_state=0,
+    )
+    assert shapdata.uns["catboost_info"]["fates_used"] == ["f1", "f2"]
+    assert "rare" not in shapdata.layers

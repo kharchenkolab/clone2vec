@@ -122,12 +122,14 @@ def read(
     dimreds: bool = True,
 ) -> "mudata.MuData":
     """
-    Reads .rds-file or .qsave-file with Seurat object and returns AnnData or MuData object.
+    Reads .rds-file or .qsave-file with Seurat object and returns MuData object.
+
+    Requires R with the Seurat package (and qs for .qsave files), accessed via `rpy2`, and `mudata`.
 
     Parameters
     ----------
     path: str | os.PathLike
-        Path to the file.
+        Path to the .rds (or .qsave if `qs=True`) file with a Seurat object.
     qs: bool, optional
         Whether to use qs package to read the file. Default is False.
     assays: str | list[str] | None, optional
@@ -142,7 +144,10 @@ def read(
     Returns
     -------
     mudata.MuData
-        MuData object.
+        MuData object with one modality per assay (`.X` from the "data" slot and `.raw` from
+        the "counts" slot when both are read), cell metadata in `.obs`, dimensionality
+        reductions in `.obsm`, graphs in `.obsp` and Seurat command history in
+        `.uns["seurat_commands"]`.
     """
     logg.warning("This is an rpy2-wrapper around Seurat. This function is very RAM intensive and has a poor garbage collection.")
 
@@ -367,14 +372,17 @@ def integrate_data(
     only_anchors: bool = False,
     mnn_graph_key: str = "seurat_mnn",
     uns_key: str = "seurat_integration",
-) -> ro.rinterface.Sexp:
+) -> None:
     """
     Performs single-cell data integration via Seurat's CCA or RPCA approach.
+
+    Requires R with the Seurat and SeuratObject packages, accessed via `rpy2`.
 
     Parameters
     ----------
     adata
-        Annotated data matrix.
+        Annotated data matrix with a dense scaled expression matrix in `.X` (e.g. after
+        `sc.pp.scale`) and log1p-normalized expression in `.raw`.
     batch_key
         Key in `adata.obs` that contains batch information.
     method
@@ -405,13 +413,19 @@ def integrate_data(
         Number of neighbors to consider when weighting anchors.
     progress_bar
         Whether to show a progress bar.
-    return_anchors
-        Whether to return the anchors.
-        
+    only_anchors
+        If True, only find integration anchors (stored as a graph) and skip the
+        integration of the expression matrix.
+    mnn_graph_key
+        Key in `adata.obsp` to store the graph of anchors weighted by their scores.
+    uns_key
+        Key in `adata.uns` to store the integration parameters.
+
     Returns
     -------
-    anchors
-        Seurat anchors object.
+    None
+        Adds the anchor graph to `adata.obsp[mnn_graph_key]`, the parameters to `adata.uns[uns_key]`
+        and, unless `only_anchors`, the integrated expression to `adata.layers[layer_name]`.
     """
     logg.warning("This is an rpy2-wrapper around Seurat. This function is very RAM intensive and has a poor garbage collection.")
     
@@ -604,6 +618,10 @@ def integrate_data(
 
                 if only_anchors:
                     adata.uns[uns_key]["mode"] = "anchors"
+
+                    if underscores:
+                        adata.var_names = var_names
+                        adata.raw.var.index = raw_var_names
 
                     # Additional garbage collection
                     try:

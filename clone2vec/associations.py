@@ -1156,6 +1156,10 @@ def associations(
     p_adjustment_method : str, optional
         Method for multiple testing correction, passed to `statsmodels.stats.multitest.multipletests`,
         default is "fdr_bh".
+    concat_layers : bool, optional
+        If True and several layers are used, they are concatenated (clones from each layer stacked
+        as separate observations) and tested jointly; results are stored under the "multi_layer"
+        prefix. Otherwise each layer is tested separately, by default False.
     random_state : int, optional
         Random seed for GAM model training, by default 42.
     progress_bar : bool, optional
@@ -1221,7 +1225,7 @@ def associations(
             masks = [masks[i] & (clones.obsm[presence_key][layer].values > 0) for i, layer in enumerate(layers)]
         if concat_layers:
             if sp.issparse(Xs[0]):
-                Xs = [sp.hstack(Xs, format="csr")]
+                Xs = [sp.vstack(Xs, format="csr")]
             else:
                 Xs = [np.concatenate(Xs, axis=0)]
             masks = [np.concatenate(masks, axis=0)]
