@@ -1343,8 +1343,8 @@
     <section class="sec-head">
       <div class="eyebrow">Part 3</div>
       <h2>clone2vec: describe clones by who they co-occur with</h2>
-      <p>Build a kNN graph on barcoded cells, count which clones neighbor each clone, then reduce that clone × clone
-        matrix: first with PCA, then with the multinomial GLM-PCA that clone2vec uses.</p>
+      <p>Build a kNN graph on barcoded cells, count which clones neighbor each clone, then compress that clone × clone
+        matrix with the multinomial GLM-PCA that clone2vec uses.</p>
     </section>
     <nav class="steps" id="steps" aria-label="Pipeline steps"></nav>
     <main class="work">
@@ -1380,12 +1380,10 @@
     const STEPS = [
       { key: 'graph', label: 'kNN graph' },
       { key: 'counts', label: 'Neighbor counts' },
-      { key: 'reduce', label: 'PCA or GLM-PCA' },
+      { key: 'reduce', label: 'GLM-PCA' },
       { key: 'embed', label: 't-SNE embedding' }];
     const isEmbStep = k => k === 'embed';
     const embKey = () => S.method;
-    const METHODS = { pca: 'PCA on log1p(CPMedian)', glm: 'GLM-PCA (clone2vec)' };
-    function methodSeg(id) { return `<div class="ctl"><label>Reduction</label><div class="seg" id="${id}">${Object.entries(METHODS).map(([k, v]) => `<button data-v="${k}" aria-pressed="${S.method === k}">${v}</button>`).join('')}</div></div>`; }
     const MAX_PER_SHAPE = 60;
     /* full dataset presets: counts + size distribution + subsampling */
     const PRESETS = [
@@ -2057,23 +2055,7 @@
       return `<div class="card"><div class="glmrow ${compact ? 'stack' : ''}">${c}${compact ? '' : '<div class="op">×</div>'}${w}</div>
     <div style="padding:0 14px"><div class="eyebrow">Row ${pill(r)} · ${TYPES[S.data.ctype[r]].name}</div></div>${s}</div>`;
     }
-    function refreshRowViz() { const g = $('#glmViz'); if (g) g.innerHTML = glmVizHTML(); const p = $('#pcaViz'); if (p) p.innerHTML = pcaVizHTML(); }
-    function pcaVizHTML() {
-      const P = S.pca, D = S.data; if (!P) return ''; const p = D.m, r = Math.min(S.sel, p - 1), compact = p > 20;
-      const cols = `grid-template-columns:110px repeat(${p},${compact ? 'minmax(0,1fr)' : '30px'})`, cls = `strip${compact ? ' compact' : ''}`;
-      const raw = Array.from(D.M[r]), norm = Array.from(P.X[r], (v, j) => v + P.mu[j]);
-      const mxR = Math.max(1e-9, ...raw), mxN = Math.max(1e-9, ...norm);
-      const cell = (t, txt, title) => { const cc = coolwarm(t); return `<div class="v" style="background:${rgbCss(cc)};color:${inkOn(cc)}" title="${title}">${compact ? '' : txt}</div>`; };
-      const band = `<div class="${cls}" style="${cols}"><span></span>${Array.from({ length: p }, (_, j) => compact ? `<div class="band" style="background:${cloneColor(j)}"></div>` : `<div style="text-align:center"><i class="sw" style="background:${cloneColor(j)}"></i></div>`).join('')}</div>`;
-      let h = `<div class="card"><div style="padding:12px 14px 0"><div class="eyebrow">Row ${pill(r)} · ${TYPES[D.ctype[r]].name} · ${P.rs[r]} neighbors</div></div><div class="strips">${band}`;
-      h += `<div class="${cls}" style="${cols}"><div class="name">counts</div>${raw.map((v, j) => cell(v / mxR, String(v), `Clone ${j + 1}: ${v}`)).join('')}</div>`;
-      h += `<div class="${cls}" style="${cols}"><div class="name"></div><div class="arrow">↓ × ${fmtN(Math.round(P.med))} / ${P.rs[r]}, then log1p</div></div>`;
-      h += `<div class="${cls}" style="${cols}"><div class="name">log1p(CPMedian)</div>${norm.map((v, j) => cell(v / mxN, v.toFixed(1), `Clone ${j + 1}: ${v.toFixed(3)}`)).join('')}</div></div>`;
-      const ev = P.lam.map(l => P.tr ? l / P.tr : 0), emx = Math.max(1e-9, ...ev), sc = P.rows[r], smx = Math.max(1e-9, ...Array.from(sc, Math.abs));
-      h += `<div class="pc-grid"><div><div class="eyebrow">Variance explained per PC</div><div class="bars">${ev.map((v, a) => `<div class="bar" title="PC${a + 1}: ${(100 * v).toFixed(1)}%"><i style="height:${(100 * v / emx).toFixed(1)}%"></i><span>${a + 1}</span></div>`).join('')}</div></div>
-    <div><div class="eyebrow">PC scores of ${pill(r)}</div><div class="bars sym">${Array.from(sc, (v, a) => `<div class="bar" title="PC${a + 1}: ${v.toFixed(2)}"><i class="${v < 0 ? 'neg' : ''}" style="height:${(50 * Math.abs(v) / smx).toFixed(1)}%"></i><span>${a + 1}</span></div>`).join('')}</div></div></div></div>`;
-      return h;
-    }
+    function refreshRowViz() { const g = $('#glmViz'); if (g) g.innerHTML = glmVizHTML(); }
     function glmStatus() {
       const g = S.glm; if (!g) return ''; const l = g.losses[g.losses.length - 1] ?? g.L0;
       return `iteration <b>${g.t}</b> · loss <b>${l.toFixed(3)}</b> nats/neighbor · deviance explained <b>${(100 * explained(g)).toFixed(1)}%</b>`;
@@ -2099,32 +2081,19 @@
       <div class="controls">${fracSeg()}<span class="stat">row total = ${D.k} × cells in clone</span></div>
       <div class="controls" style="padding-top:0">${cbarHTML()}</div></div>`;
       } else if (st === 'reduce') {
-        if (S.method === 'glm') {
-          const ks = [2, 3, 6, 10].filter(v => v < Math.max(3, D.m)); if (!ks.includes(S.glmK)) S.glmK = ks.includes(6) ? 6 : (ks[ks.length - 1] || 2);
-          h = need(2) || `<div class="card prose">${head(2, 'Reduce the matrix: multinomial GLM-PCA')}
-        <div>${methodSeg('methSeg')}</div>
+        const ks = [2, 3, 6, 10].filter(v => v < Math.max(3, D.m)); if (!ks.includes(S.glmK)) S.glmK = ks.includes(6) ? 6 : (ks[ks.length - 1] || 2);
+        h = need(2) || `<div class="card prose">${head(2, 'Reduce the matrix: multinomial GLM-PCA')}
         <p>Each row is a multinomial sample: its total number of neighbors is fixed, and what matters is how they split across clones. GLM-PCA fits <span class="mono">softmax(C·W + b)</span> to those proportions by minimizing the multinomial negative log-likelihood of the observed counts.</p>
         <p><b>C</b> (clones × k) is the clone2vec embedding: one point per clone. <b>W</b> (k × clones) gives how each neighbor clone loads on each factor. <b>b</b> holds overall neighbor frequencies, so the factors only explain how a clone deviates from the average neighborhood.</p>
-        <p class="small muted">Compared with PCA: a row built from 300 neighbors carries more evidence than one built from 30 and is weighted accordingly, and zero counts need no pseudo-count.</p></div>
+        <p class="small muted">A row built from 300 neighbors carries more evidence than one built from 30 and is weighted accordingly, and zero counts need no pseudo-count.</p></div>
         <div class="card controls"><div class="ctl"><label>Factors k</label><div class="seg" id="kSeg">${ks.map(v => `<button data-v="${v}" aria-pressed="${S.glmK === v}">${v}</button>`).join('')}</div></div>
         <button class="btn" id="refit">Refit from random start</button><span class="stat" id="glmStat">${glmStatus()}</span></div>
         <div id="glmViz">${glmVizHTML()}</div>`;
-        } else {
-          const ks = [2, 5, 10, 20].filter(v => v < D.m); if (!ks.includes(S.pcaK)) S.pcaK = ks.includes(10) ? 10 : (ks[ks.length - 1] || 2);
-          if (D.m >= 2 && (!S.pca || S.pca.k !== Math.min(S.pcaK, D.m - 1))) S.pca = pcaFit(D.M, Math.min(S.pcaK, D.m - 1));
-          h = need(2) || `<div class="card prose">${head(2, 'Reduce the matrix: PCA on log1p(CPMedian)')}
-        <div>${methodSeg('methSeg')}</div>
-        <p>The standard single-cell recipe, applied to the clone × clone neighbor-count matrix: scale every row to the median row total (CPMedian, here ${fmtN(Math.round(S.pca ? S.pca.med : 0))} neighbors), take <span class="mono">log1p</span>, center, and keep the top principal components.</p>
-        <p>A clone is now described by which clones it co-occurs with, not by the exact positions of its cells, which is why this works where E-distance mixes the crosses. Its weak spot is tiny clones: a row built from a handful of neighbors is mostly zeros, yet after normalization it counts as much as a row built from hundreds. Load <b>Extreme</b> and compare the t-SNE in step 3: PCA gathers the tiny clones of every shape into one central blob, GLM-PCA places them with their shape.</p></div>
-        <div class="card controls"><div class="ctl"><label>PCs</label><div class="seg" id="pcaKSeg">${ks.map(v => `<button data-v="${v}" aria-pressed="${S.pcaK === v}">${v}</button>`).join('')}</div></div>
-        <span class="stat">${S.pca ? `top ${S.pca.k} PCs explain <b>${(100 * S.pca.evr).toFixed(0)}%</b> of variance` : ''}</span></div>
-        <div id="pcaViz">${pcaVizHTML()}</div>`;
-        }
+
       } else if (isEmbStep(st)) {
-        const counts = TYPES.map((_, t) => S.ds.counts[t]), pca = S.method === 'pca';
+        const counts = TYPES.map((_, t) => S.ds.counts[t]);
         h = `<div class="card prose">${head(3, 't-SNE of the reduced clones')}
-      <div>${methodSeg('methSeg2')}</div>
-      <p>${pca ? `The top ${Math.min(S.pcaK, Math.max(1, D.m - 1))} PCs of the log1p(CPMedian) matrix` : `The ${Math.min(S.glmK, Math.max(1, D.m - 1))} GLM-PCA factors (the clone2vec embedding C)`} of all ${D.m} clones, laid out in 2D with t-SNE. Colors show the hidden shape, which the method never sees. Switch the reduction above to compare the two on the same clones.</p>
+      <p>The ${Math.min(S.glmK, Math.max(1, D.m - 1))} GLM-PCA factors (the clone2vec embedding C) of all ${D.m} clones, laid out in 2D with t-SNE. Colors show the hidden shape, which the method never sees.</p>
       <p class="small muted">Crosses form a continuum ordered by angle that wraps around (75° sits next to 0°), and rings separate by radius.</p></div>
       ${D.m < 30 ? `<div class="card controls"><span class="small">Few clones make a sparse embedding.</span><button class="btn primary" id="loadBig">Load the Easy example</button></div>` : ''}
       <div class="card controls"><span class="stat">k = ${D.k} (set in step 0)</span><button class="btn" id="rerun">Refit from random start</button></div>
@@ -2222,9 +2191,6 @@
       on('#kSeg', 'click', e => { const b = e.target.closest('button'); if (!b) return; S.glmK = +b.dataset.v; S.run++; S.glm = null; S.embs.glm = null; renderPanel(); fitToy(); });
       on('#refit', 'click', () => { S.run++; S.glm = null; S.refits++; fitToy(); });
       on('#glmViz', 'click', e => { const c = e.target.closest('[data-row]'); if (!c) return; S.sel = +c.dataset.row; refreshRowViz(); drawStage(); });
-      const setMethod = v => { if (v === S.method) return; S.method = v; S.run++; render(); restartJobs(); };
-      ['#methSeg', '#methSeg2'].forEach(id => on(id, 'click', e => { const b = e.target.closest('button'); if (b) setMethod(b.dataset.v); }));
-      on('#pcaKSeg', 'click', e => { const b = e.target.closest('button'); if (!b) return; S.pcaK = +b.dataset.v; S.pca = null; S.embs.pca = null; S.run++; renderPanel(); drawStage(); });
       on('#rerun', 'click', () => { S.refits++; S.emb = null; S.run++; runEmbed(); });
       on('#loadBig', 'click', () => loadPreset(2));
       document.querySelectorAll('.thumb').forEach(t => t.addEventListener('click', e => {
@@ -2297,37 +2263,12 @@
     }
     function setStatus(t, key = embKey()) { S.statusBy = S.statusBy || {}; S.statusBy[key] = t; if (key !== embKey()) return; const el = $('#bigStatus'); if (el) el.textContent = t; }
     const curStatus = () => (S.statusBy || {})[embKey()] || '';
-    /* PCA on log1p(CPMedian)-normalized clone × clone counts; top-k scores via subspace iteration */
-    function pcaFit(M, k) {
-      const m = M.length, p = m ? M[0].length : 0, rs = M.map(r => r.reduce((a, b) => a + b, 0)), srt = [...rs].sort((a, b) => a - b), med = srt[srt.length >> 1] || 1;
-      const X = M.map((r, i) => Float64Array.from(r, v => rs[i] ? Math.log1p(v / rs[i] * med) : 0)), mu = new Float64Array(p);
-      for (const r of X) for (let j = 0; j < p; j++)mu[j] += r[j] / m; for (const r of X) for (let j = 0; j < p; j++)r[j] -= mu[j];
-      const C = new Float64Array(p * p); let tr = 0;
-      for (const r of X) for (let a = 0; a < p; a++) { const v = r[a]; if (!v) continue; for (let b = a; b < p; b++)C[a * p + b] += v * r[b]; }
-      for (let a = 0; a < p; a++) { tr += C[a * p + a]; for (let b = a + 1; b < p; b++)C[b * p + a] = C[a * p + b]; }
-      const R = rng(77); let Q = Array.from({ length: k }, () => Float64Array.from({ length: p }, () => gauss(R)));
-      const orth = V => {
-        for (let a = 0; a < V.length; a++) {
-          for (let b = 0; b < a; b++) { let d = 0; for (let j = 0; j < p; j++)d += V[a][j] * V[b][j]; for (let j = 0; j < p; j++)V[a][j] -= d * V[b][j]; }
-          let nn = 0; for (let j = 0; j < p; j++)nn += V[a][j] * V[a][j]; nn = Math.sqrt(nn) || 1; for (let j = 0; j < p; j++)V[a][j] /= nn;
-        } return V;
-      };
-      const mul = q => { const z = new Float64Array(p); for (let a = 0; a < p; a++) { let s = 0; const o = a * p; for (let b = 0; b < p; b++)s += C[o + b] * q[b]; z[a] = s; } return z; };
-      orth(Q); for (let it = 0; it < 60; it++)Q = orth(Q.map(mul));
-      const lam = Q.map(q => { const z = mul(q); let s = 0; for (let j = 0; j < p; j++)s += z[j] * q[j]; return s; });
-      const idx = lam.map((_, i) => i).sort((a, b) => lam[b] - lam[a]); Q = idx.map(i => Q[i]);
-      const rows = X.map(r => Float64Array.from(Q, q => { let s = 0; for (let j = 0; j < p; j++)s += r[j] * q[j]; return s; }));
-      return { rows, k, X, mu, med, rs, lam: idx.map(i => lam[i]), tr, evr: tr ? idx.reduce((s, i) => s + lam[i], 0) / tr : 0 };
-    }
     const setStatusK = (key, t) => setStatus(t, key);
     async function runEmbed() {
       const key = embKey(), my = S.run, D = S.data, live = () => my === S.run && embKey() === key;
       if (D.m < 4) { S.embs[key] = null; setStatusK(key, 'Add at least 4 clones to build an embedding.'); drawStage(); return; }
       const E = { Y: null, done: false }; S.embs[key] = E; let rows, k, desc;
-      if (key === 'pca') {
-        k = Math.min(S.pcaK || 10, D.m - 1); setStatusK(key, `PCA on ${D.m} × ${D.m} log1p(CPMedian) matrix…`); drawStage(); await tick(20); if (!live()) return;
-        const P = S.pca && S.pca.k === k ? S.pca : (S.pca = pcaFit(D.M, k)); rows = P.rows; desc = `PCA on log1p(CPMedian) · ${k} PCs, ${(100 * P.evr).toFixed(0)}% of variance`;
-      } else {
+      {
         k = Math.min(S.glmK, D.m - 1); const reuse = S.glm && S.glm.done && S.glm.k === k, g = reuse ? S.glm : glmInit(D.M, k, S.seed + 5 + S.refits * 13), its = reuse ? 0 : 300; E.glm = g;
         for (let it = 0; it < its; it++) {
           glmStep(g, 0.05 * (1 / (1 + it / 300)));

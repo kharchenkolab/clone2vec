@@ -24,19 +24,18 @@ def _mnn(
 
     Parameters
     ----------
-    A : pd.DataFrame
+    A
         First dataset with shape (n_samples_A, n_features).
-    B : pd.DataFrame
+    B
         Second dataset with shape (n_samples_B, n_features).
-    k : int, optional
+    k
         Number of nearest neighbors to find, by default 10.
-    metric : str, optional
+    metric
         Distance metric to use, by default "euclidean".
 
     Returns
     -------
-    np.ndarray
-        Array of MNN pairs, where each row is [index_A, index_B] of a MNN pair.
+    Array of MNN pairs, where each row is [index_A, index_B] of a MNN pair.
     """
     import pynndescent
 
@@ -103,15 +102,14 @@ def _hierarchical_concatenation(
 
     Parameters
     ----------
-    similarity_matrix : pd.DataFrame
+    similarity_matrix
         DataFrame where rows and columns represent items, and values are similarities.
-    method : str, optional
+    method
         Linkage method to use for clustering, by default "ward".
 
     Returns
     -------
-    list[tuple[tuple[str, str], str]]
-        List of concatenation steps, each a pair of merged clusters and their new name.
+    List of concatenation steps, each a pair of merged clusters and their new name.
     """
     from scipy.cluster.hierarchy import linkage
     from scipy.spatial.distance import squareform
@@ -151,21 +149,20 @@ def _affine_transform(
 
     Parameters
     ----------
-    A : np.ndarray
+    A
         First dataset with shape (n_samples_A, n_features) — query.
-    B : np.ndarray
+    B
         Second dataset with shape (n_samples_B, n_features) — reference.
-    order_A : np.ndarray
+    order_A
         Ordering of samples in A to match with B.
-    order_B : np.ndarray
+    order_B
         Ordering of samples in B to match with A.
-    weights : np.ndarray, optional
+    weights
         Weights for each sample pair, by default None.
 
     Returns
     -------
-    tuple[np.ndarray, dict]
-        Transformed A and dictionary with rotation matrix, scale, and translation.
+    Transformed A and dictionary with rotation matrix, scale, and translation.
     """
     A_matched = A[order_A, :]
     B_matched = B[order_B, :]
@@ -198,13 +195,12 @@ def _write_order(order: list) -> str:
 
     Parameters
     ----------
-    order : list
+    order
         List of concatenation steps, each a pair of merged clusters and their new name.
 
     Returns
     -------
-    str
-        String representation of the order of concatenation.
+    String representation of the order of concatenation.
     """
     order_str = ""
     for operation in order:
@@ -217,13 +213,12 @@ def _read_order(order_str: str) -> list:
 
     Parameters
     ----------
-    order_str : str
+    order_str
         String representation of the order of concatenation.
 
     Returns
     -------
-    list
-        List of concatenation steps, each a pair of merged clusters and their new name.
+    List of concatenation steps, each a pair of merged clusters and their new name.
     """
     order = []
     for operation in order_str.split(";"):
@@ -250,31 +245,30 @@ def find_mnn(
 
     Parameters
     ----------
-    clones : AnnData
+    clones
         Annotated data matrix at the clone level.
-    batch_key : str
+    batch_key
         Column in `clones.obs` containing batch information.
-    use_rep : str, optional
+    use_rep
         Key in `clones.obsm` containing representation to use for anchor finding, by default "X_pca".
-    k : int, optional
+    k
         Number of nearest neighbors to use for anchor finding, by default 10.
-    k_trim : int, optional
+    k_trim
         Maximum number of MNN partners kept per clone (the ones with the smallest
         sum of mutual neighbour ranks), by default 3.
-    metric : str, optional
+    metric
         Distance metric to use for anchor finding, by default "euclidean".
-    uns_key : str, optional
+    uns_key
         Key in `clones.uns` to store anchor information, by default "simple_mnn".
-    graph_key : str, optional
+    graph_key
         Key in `clones.obsp` to store MNN graph, by default "mnn".
-    progress_bar : bool, optional
+    progress_bar
         Whether to show a progress bar, by default True.
 
     Returns
     -------
-    None
-        MNN graph is stored in `clones.obsp[graph_key]`. 
-        Anchor information is stored in `clones.uns[uns_key]`.
+    MNN graph is stored in `clones.obsp[graph_key]`. 
+    Anchor information is stored in `clones.uns[uns_key]`.
     """
     from itertools import combinations
     
@@ -404,21 +398,20 @@ def find_mnn(
     ]
     logg.info("    finished ({time_passed})", deep="\n".join(lines), time=start)
 
-def _find_order(batch_vector: pd.Series | np.ndarray | list, graph: sp.csr_matrix | np.ndarray):
+def _find_order(batch_vector: pd.Series | np.ndarray | list, graph: sp.csr_matrix | np.ndarray) -> list:
     """
     Giving the MNN graph, calculating the integration order.
 
     Parameters
     ----------
-    batch_vector : pd.Series | np.ndarray | list
+    batch_vector
         Vector of batch labels for each clone.
-    graph : sp.csr_matrix | np.ndarray
+    graph
         Symmetric MNN graph over global indices.
 
     Returns
     -------
-    list
-        Integration order.
+    Integration order.
     """
     similarities = {}
     batch_categories = list(set(batch_vector))
@@ -451,22 +444,21 @@ def align(
 
     Parameters
     ----------
-    clones : AnnData
+    clones
         Annotated data matrix at the clone level.
-    use_rep : str, optional
+    use_rep
         Key in `clones.obsm` containing representation to use for alignment, by default "clone2vec".
-    adj_rep : str, optional
+    adj_rep
         Key in `clones.obsm` to store aligned representation, by default "clone2vec_pa".
-    uns_key : str, optional
+    uns_key
         Key in `clones.uns` containing anchor information, by default "simple_mnn".
-    weighted : bool, optional
+    weighted
         Whether to weight anchor pairs by their MNN graph weights (higher for pairs that are
         closer in each other's neighbour lists) when fitting the transformation, by default True.
 
     Returns
     -------
-    None
-        Aligned representation is stored in `clones.obsm[adj_rep]`.
+    Aligned representation is stored in `clones.obsm[adj_rep]`.
     """
     start = logg.info("aligning representation using weighted affine least-squares and MNN anchors")
     try:

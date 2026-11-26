@@ -28,15 +28,14 @@ def _clr(x: np.ndarray, epsilon: float = 1e-3) -> np.ndarray:
 
     Parameters
     ----------
-    x : np.ndarray
+    x
         Input array with shape (n_samples, n_features).
-    epsilon : float, optional
+    epsilon
         Small constant to avoid log(0) and division by zero, by default 1e-3.
 
     Returns
     -------
-    np.ndarray
-        CLR-transformed array with shape (n_samples, n_features).
+    CLR-transformed array with shape (n_samples, n_features).
     """
     if not np.allclose(x, x.astype(int)):
         if epsilon == 1e-3:
@@ -68,7 +67,7 @@ def fast_corr(
     batch_size: int = 1000,
     progress_bar: bool = True,
     weights: np.ndarray | None = None,
-) -> dict[str, np.ndarray]:
+) -> dict[str, np.ndarray | pd.DataFrame]:
     """
     Calculate the correlation matrix between X and Y, gracefully handling
     columns with zero variance by setting the correlation to NaN.
@@ -77,36 +76,35 @@ def fast_corr(
 
     Parameters
     ----------
-    X : np.ndarray | scipy.sparse.spmatrix | pd.DataFrame | pd.Series
+    X
         Dataset with shape (n_samples, n_features). If sparse, columns are
         processed in dense batches to limit memory usage.
-    Y : np.ndarray | pd.DataFrame | pd.Series
+    Y
         Response matrix with shape (n_samples, n_responses). Assumed dense.
-    method : Literal["pearson", "spearman"], optional
+    method
         Correlation method to use, by default "pearson".
-    significance : bool
+    significance
         If True, also returns a matrix of p-values corresponding to the
         correlation matrix under the assumption of a t-distribution with
         degrees of freedom equal to the number of samples minus two.
-    slope : bool
+    slope
         If True, also returns a matrix of slopes corresponding to the
         correlation matrix.
-    batch_size : int, optional
+    batch_size
         Number of X columns to process per batch when X is sparse, by default 1000.
-    progress_bar : bool, optional
+    progress_bar
         Whether to display a progress bar for batch processing when X is sparse,
         by default True.
-    weights : np.ndarray | None, optional
+    weights
         Per-sample weights of shape (n_samples,). When provided, compute
         weighted correlation. Typically used with ``binomial=True`` where weights
         are the total counts per cell, by default None.
 
     Returns
     -------
-    dict[str, np.ndarray | pd.DataFrame]
-        Dictionary with correlation matrix, p-values, and slopes of shape (n_features, n_responses).
-        If X or Y is a pandas object, values are DataFrames indexed by X columns (or Series name)
-        with Y columns (or Series name) as columns.
+    Dictionary with correlation matrix, p-values, and slopes of shape (n_features, n_responses).
+    If X or Y is a pandas object, values are DataFrames indexed by X columns (or Series name)
+    with Y columns (or Series name) as columns.
     """
     if isinstance(X, (pd.DataFrame, pd.Series)) or isinstance(Y, (pd.DataFrame, pd.Series)):
         def labels(A):
@@ -315,34 +313,33 @@ def _fast_corr_cols(
 
     Parameters
     ----------
-    X : np.ndarray | scipy.sparse.spmatrix
+    X
         Dataset with shape (n_samples, n_features).
-    Y : np.ndarray | scipy.sparse.spmatrix
+    Y
         Another dataset with the same shape as X.
-    method : Literal["pearson", "spearman"], optional
+    method
         Statistic to compute, by default "pearson".
-    significance : bool, optional
+    significance
         If True, also returns p-values (for Pearson/Spearman via t-test,
         for GAM via LRT/Wald), by default True.
-    slope : bool, optional
+    slope
         If True, also returns slopes (for Pearson/Spearman as std ratio times r;
         for GAM the endpoints change), by default True.
-    batch_size : int, optional
+    batch_size
         Number of columns to process per batch when X (or Y) is sparse,
         by default 1000.
-    progress_bar : bool, optional
+    progress_bar
         Whether to display a progress bar for batch processing when inputs are
         sparse or when method=="gam", by default True.
-    weights : np.ndarray | None, optional
+    weights
         Per-sample weights of shape (n_samples,). When provided, compute
         weighted correlation, by default None.
 
     Returns
     -------
-    dict[str, np.ndarray]
-        Dictionary with statistics. For Pearson/Spearman: keys "r",
-        optionally "pvalue" and "slope". For GAM: keys "r2",
-        "amplitude", optionally "pvalue" and "slope".
+    Dictionary with statistics. For Pearson/Spearman: keys "r",
+    optionally "pvalue" and "slope". For GAM: keys "r2",
+    "amplitude", optionally "pvalue" and "slope".
     """
     if isinstance(X, np.ndarray) and X.ndim == 1:
         X = X[:, None].copy()
@@ -517,14 +514,14 @@ def _fast_corr_cols(
         raise ValueError("method must be 'pearson' or 'spearman'")
 
 def _calculate_gam_stats(
-    x: np.array,
-    y: np.array,
+    x: np.ndarray,
+    y: np.ndarray,
     spline_df: int = 5,
     spline_function: str = "bs",
     p_method: Literal["lrt", "wald"] = "lrt",
     random_state: int | None = 42,
     binomial: bool = False,
-    totals: np.array | None = None,
+    totals: np.ndarray | None = None,
     **spline_kwargs,
 ) -> dict[str, np.ndarray]:
     """
@@ -532,31 +529,30 @@ def _calculate_gam_stats(
 
     Parameters
     ----------
-    x : np.array
+    x
         Input feature vector.
-    y : np.array
+    y
         Response vector. When ``binomial=True`` this should be proportions
         (successes / totals) in the range [0, 1].
-    spline_df : int, optional
+    spline_df
         Degrees of freedom for the spline, by default 5.
-    spline_function : str, optional
+    spline_function
         Spline function to use, by default "bs".
-    p_method : Literal["lrt", "wald"], optional
+    p_method
         Method to use for p-value calculation, by default "lrt".
-    random_state : int | None, optional
+    random_state
         Seed for NumPy RNG to ensure reproducible behavior in stochastic routines, by default 42.
-    binomial : bool, optional
+    binomial
         If True, use a Binomial GLM instead of Gaussian. ``y`` should be
         proportions and ``totals`` the per-observation trial counts, by default False.
-    totals : np.array | None, optional
+    totals
         Per-observation trial counts (used only when ``binomial=True``), by default None.
-    **spline_kwargs : dict, optional
+    **spline_kwargs
         Additional keyword arguments to pass to the spline formula.
 
     Returns
     -------
-    dict[str, np.ndarray]
-        Dictionary with GAM statistics.
+    Dictionary with GAM statistics.
     """
     if random_state is not None:
         try:
@@ -656,34 +652,33 @@ def _gam(
 
     Parameters
     ----------
-    X : np.ndarray
+    X
         Dataset with shape (n_samples, n_features).
-    Y : np.ndarray
+    Y
         Response matrix with shape (n_samples, n_responses).
         When ``binomial=True`` these should be proportions.
-    spline_df : int, optional
+    spline_df
         Degrees of freedom for the spline, by default 5.
-    spline_degree : int, optional
+    spline_degree
         Degree of the spline, by default 3.
-    n_jobs : int, optional
+    n_jobs
         Number of parallel jobs to run, by default -1.
-    p_method : Literal["lrt", "wald"], optional
+    p_method
         Method to use for p-value calculation, by default "lrt".
-    progress_bar : bool, optional
+    progress_bar
         If True, display a progress bar, by default True.
-    random_state : int | None, optional
+    random_state
         Base seed used to derive a deterministic per-pair seed, ensuring reproducibility, by default 42.
-    binomial : bool, optional
+    binomial
         If True, use a Binomial GLM instead of Gaussian, by default False.
-    totals : np.ndarray | None, optional
+    totals
         Per-observation trial counts (used only when ``binomial=True``), by default None.
-    **spline_kwargs : dict, optional
+    **spline_kwargs
         Additional keyword arguments to pass to the spline formula.
 
     Returns
     -------
-    dict[str, np.ndarray]
-        Dictionary with GAM statistics for each pair of columns in X and Y.
+    Dictionary with GAM statistics for each pair of columns in X and Y.
     """
     from itertools import product
 
@@ -759,16 +754,15 @@ def _adjust_pvalues(
 
     Parameters
     ----------
-    pvalues : np.ndarray
+    pvalues
         Array of p-values to adjust. Can be any-dimensional.
-    method : str, optional
+    method
         Method for adjustment, will be passed to `statsmodels.stats.multitest.multipletests`,
         default is "fdr_bh".
 
     Returns
     -------
-    np.ndarray
-        Adjusted p-values. Has the same shape as `pvalues`.
+    Adjusted p-values. Has the same shape as `pvalues`.
     """
     from statsmodels.stats.multitest import multipletests
 
@@ -791,16 +785,15 @@ def _morans_i(
 
     Parameters
     ----------
-    X : np.ndarray
+    X
         Centered (typically scaled) matrix of shape (n_observations, n_features).
-    w : sp.spmatrix | np.ndarray
+    w
         Spatial weights (graph) of shape (n_observations, n_observations).
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray, np.ndarray]
-        Moran's I, z-scores and one-sided p-values (normal approximation under the
-        assumption of normality) for every feature. Features with zero variance get NaN.
+    Moran's I, z-scores and one-sided p-values (normal approximation under the
+    assumption of normality) for every feature. Features with zero variance get NaN.
     """
     X = np.asarray(X, dtype=np.float64)
     w = sp.csr_matrix(w, dtype=np.float64)
@@ -883,20 +876,20 @@ def spca(
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         AnnData object containing the data.
-    layer : None | str
+    layer
         Layer to use for the analysis.
-    graph_key : str
+    graph_key
         Key to use for the graph.
-    n_pcs : int
+    n_pcs
         Number of principal components to compute.
-    key_added : str
+    key_added
         Key to use for adding the results to the AnnData object.
 
     Returns
     -------
-    None
+    Updates `adata` with `.obsm[key_added]`, `.varm['sPCs']`, and `.uns['spca']`.
     """
     start = logg.info(f"computing sPCA")
 
@@ -938,18 +931,18 @@ def moran(
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         AnnData object containing the data.
-    layer : None | str
+    layer
         Layer to use for the analysis.
-    graph_key : str
+    graph_key
         Key to use for the graph.
-    adj_method : str
+    adj_method
         Method for adjusting p-values, by default "fdr_bh".
 
     Returns
     -------
-    None
+    Updates `adata.var` with `'morans_i'`, `'morans_i_pval'`, and `'morans_i_p_adj'`.
     """
     start = logg.info(f"computing Moran's I")
 
@@ -981,19 +974,18 @@ def _graph_adata(
 
     Parameters
     ----------
-    clones : sc.AnnData
+    clones
         Clone-level expression returned by `c2v.pp.transfer_expression`.
-    max_value : float | None
+    max_value
         Clipping value for `sc.pp.scale`.
-    n_neighbors : int | None
+    n_neighbors
         Number of neighbors for the clonal graph, if None, the existing graph is kept.
-    use_rep : str | None
+    use_rep
         Representation for `sc.pp.neighbors`.
 
     Returns
     -------
-    sc.AnnData
-        Copy of `clones` with scaled expression in `.X` and the graph in `.obsp`.
+    Copy of `clones` with scaled expression in `.X` and the graph in `.obsp`.
     """
 
     split_obs = clones.uns["transfer_expression"].get("split_obs")
@@ -1038,28 +1030,27 @@ def graph_associations(
 
     Parameters
     ----------
-    clones : sc.AnnData
+    clones
         Clone-level expression returned by `c2v.pp.transfer_expression`.
-    max_value : float | None
+    max_value
         Clipping value for `sc.pp.scale`, by default 10.
-    n_neighbors : int | None
+    n_neighbors
         Number of neighbors for the clonal graph. If None, `clones.obsp['connectivities']`
         is used, by default 10.
-    use_rep : str | None
+    use_rep
         Representation for `sc.pp.neighbors`. If None, "clone2vec" or "clone2vec_Poi"
         is used, by default None.
-    n_pcs : int
+    n_pcs
         Number of supervised principal components, by default 50.
-    adj_method : str
+    adj_method
         Method for adjusting Moran's I p-values, by default "fdr_bh".
 
     Returns
     -------
-    None
-        Updates `clones` with Moran's I and its analytical p-values (`.var['morans_i']`,
-        `.var['morans_i_pval']`, `.var['morans_i_p_adj']`), sPCA results (`.obsm['X_sPCA']`,
-        `.varm['sPCs']`, `.uns['spca']`), and the parameters (`.uns['graph_associations']`)
-        inherited by `c2v.tl.permuted_graph_associations`.
+    Updates `clones` with Moran's I and its analytical p-values (`.var['morans_i']`,
+    `.var['morans_i_pval']`, `.var['morans_i_p_adj']`), sPCA results (`.obsm['X_sPCA']`,
+    `.varm['sPCs']`, `.uns['spca']`), and the parameters (`.uns['graph_associations']`)
+    inherited by `c2v.tl.permuted_graph_associations`.
     """
     if "transfer_expression" not in clones.uns:
         raise ValueError("run `c2v.pp.transfer_expression` before `c2v.tl.graph_associations`")
@@ -1134,53 +1125,52 @@ def associations(
 
     Parameters
     ----------
-    clones : AnnData
+    clones
         Annotated data matrix at the clone level (e.g., returned by `c2v.pp.transfer_expression`).
-    response_key : str | list[str] | None
+    response_key
         Key in `clones.obs` or `clones.obsm` containing the response variable. Might be a list
         only if `response_field='obs'`, in this case the response variable is a multi-column DataFrame.
-    response_field : Literal["obs", "obsm"], optional
+    response_field
         Whether the response variable is in `clones.obs` or `clones.obsm`, by default "obsm".
-    response_transform : None | Literal["logit", "log1p", "sqrt", "clr"], optional
+    response_transform
         Transform to apply to the response variable before correlation calculation, by default None.
-    use_rep : Literal["X", "layers"] | None, optional
+    use_rep
         Whether to use `clones.X` or `clones.layers` for feature representations, if None, uses 
         `clones.X` if `layers` is None, otherwise `clones.layers`, by default None.
-    use_raw : bool | None, optional
+    use_raw
         Whether to use `clones.raw.X` as the feature representation, by default None.
-    layers : list[str] | str | None, optional
+    layers
         Layers in `clones.layers` to use for feature representations if `use_rep='layers'`. If None and
         use_rep="layers", uses all layers, by default None.
-    method : Literal["pearson", "spearman", "gam"], optional
+    method
         Method for correlation calculation, by default "pearson".
-    p_adjustment_method : str, optional
+    p_adjustment_method
         Method for multiple testing correction, passed to `statsmodels.stats.multitest.multipletests`,
         default is "fdr_bh".
-    concat_layers : bool, optional
+    concat_layers
         If True and several layers are used, they are concatenated (clones from each layer stacked
         as separate observations) and tested jointly; results are stored under the "multi_layer"
         prefix. Otherwise each layer is tested separately, by default False.
-    random_state : int, optional
+    random_state
         Random seed for GAM model training, by default 42.
-    progress_bar : bool, optional
+    progress_bar
         Whether to show a progress bar, by default False.
-    presence_key : str | None | Literal[False], optional
+    presence_key
         Key in `clones.obs` or `clones.obsm` containing a boolean mask to filter clones, by default None.
-    clr_pseudocount : float, optional
+    clr_pseudocount
         Pseudocount to add to expression values before CLR transformation, by default 1e-3.
-    binomial : bool, optional
+    binomial
         If True, treat the response as count data and use binomial modeling. The response
         matrix is interpreted as integer counts; proportions and row totals are computed
         internally. For ``method='gam'``, a Binomial GLM is fitted (with ``freq_weights=totals``).
         For ``method='pearson'`` or ``'spearman'``, weighted correlation is computed on the
         proportions, with weights equal to row totals, by default False.
-    **gam_kwargs : dict, optional
+    **gam_kwargs
         Additional keyword arguments to pass to `gam`.
 
     Returns
     -------
-    None
-        The `clones` object is modified in place with correlation results stored in `clones.varm`.
+    The `clones` object is modified in place with correlation results stored in `clones.varm`.
     """
     if presence_key is None and "presence_key" in clones.uns.keys():
         presence_key = clones.uns["presence_key"]
@@ -1430,35 +1420,34 @@ def masked_markers(
 
     Parameters
     ----------
-    clones : AnnData
+    clones
         Clone-level AnnData with expression in `.X` and the masked embedding in `.obsm`.
-    groupby : str
+    groupby
         Column in `clones.obs` with clone groups.
-    reference : str | list[str]
+    reference
         Reference group(s); must not overlap with `test`.
-    test : str | list[str]
+    test
         Test group(s); must not overlap with `reference`.
-    masked_embedding : str, optional
+    masked_embedding
         Key in `clones.obsm` with the embedding from `tl.mask_heterogeneity`, by default "clone2vec_mask".
-    method : Literal["regression", "spearman", "deseq2"], optional
+    method
         "regression": t-statistic of the linear regression slope of expression on the score;
         "spearman": Spearman correlation between expression and the score;
         "deseq2": Wald statistic of the score coefficient of a DESeq2 model (`~score`, requires
         `pydeseq2`) fitted on raw counts, i.e. `clones.X` after `pp.transfer_expression` with
         `strategy="sum"` on integer counts. By default "regression".
-    n_neighbors : int, optional
+    n_neighbors
         Number of neighbours in the kNN graph, by default 10.
-    keep_clones : Literal["exact", "similar"], optional
+    keep_clones
         "exact": only clones from `reference` and `test` are used; "similar": clones with at
         least one `reference` or `test` clone among neighbours are used. By default "exact".
 
     Returns
     -------
-    pd.DataFrame
-        Indexed by gene names, with columns "scores" (t-statistic, Spearman rho, or DESeq2 Wald
-        statistic), "logfoldchanges" (slope per unit of the score in log2 units), "pvals",
-        "pvals_adj" (Benjamini-Hochberg),
-        sorted by "scores" in descending order. Positive scores mean higher expression in `test`.
+    Indexed by gene names, with columns "scores" (t-statistic, Spearman rho, or DESeq2 Wald
+    statistic), "logfoldchanges" (slope per unit of the score in log2 units), "pvals",
+    "pvals_adj" (Benjamini-Hochberg),
+    sorted by "scores" in descending order. Positive scores mean higher expression in `test`.
     """
     if method not in ("regression", "spearman", "deseq2"):
         raise ValueError(f"method must be one of {{'regression', 'spearman', 'deseq2'}}, got '{method}'.")
@@ -1563,17 +1552,16 @@ def _spca_evals(X: np.ndarray, w: sp.spmatrix, n_pcs: int) -> np.ndarray:
 
     Parameters
     ----------
-    X : np.ndarray
+    X
         Scaled expression matrix (observations × genes).
-    w : sp.spmatrix
+    w
         Graph of shape (observations × observations).
-    n_pcs : int
+    n_pcs
         Number of leading eigenvalues.
 
     Returns
     -------
-    np.ndarray
-        Scaled eigenvalues in decreasing order.
+    Scaled eigenvalues in decreasing order.
     """
     X = np.asarray(X, dtype=np.float64)
     w = sp.csr_matrix(w, dtype=np.float64)
@@ -1613,47 +1601,46 @@ def permuted_graph_associations(
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         Annotated data matrix at the cell level that expression of `clones` was transferred
         from; all its cells have to be used in `permute_embeddings`.
-    clones : sc.AnnData
+    clones
         Clone-level expression returned by `c2v.pp.transfer_expression` with the results of
         `c2v.tl.graph_associations` and `permute_embeddings`.
-    permutations_key : str, optional
+    permutations_key
         `key_added` used in `permute_embeddings`, by default "clonal_permutations".
-    clones_full : sc.AnnData | None, optional
+    clones_full
         Clone-level object `permute_embeddings` was run on, if `clones` contains only a subset
         of its clones (e.g., clones without expression removed by `transfer_expression`).
         If provided, permuted embeddings are taken from it and every permutation starts from
         all its clones, so the set of clones retained after the transfer can differ from the
         observed one. If None, permutations are taken from `clones`, by default None.
-    adj_method : str, optional
+    adj_method
         Method for adjusting p-values, by default "fdr_bh".
-    progress_bar : bool, optional
+    progress_bar
         Whether to show a progress bar, by default True.
-    key_added : str, optional
+    key_added
         Key in `clones.uns` to store the results, by default "permuted_graph_associations".
 
     Returns
     -------
-    None
-        `clones.var` is updated (next to `morans_i` and `morans_i_pval` of
-        `graph_associations`) with the mean and the standard deviation of the null
-        (`null_mean`, `null_std`), the number of permutations with a defined Moran's I
-        (`n_permutations`), the empirical one-sided p-value (`perm_pval`, `perm_p_adj`), the
-        z-score with respect to the null and its normal p-value (`z_score`, `z_pval`,
-        `z_p_adj`), and D'Agostino-Pearson normality test of the null (`normaltest_stat`,
-        `normaltest_pval`). `clones.uns[key_added]` stores
-        `null_distribution` – a data frame (genes × permutations) with Moran's I values
-        under permutations; `spca` – a data frame (sPCs × statistics) with the observed
-        variance explained (`varexpl`), the scaled eigenvalue (`eval_norm`), its null mean and
-        standard deviation (`null_mean`, `null_std`), the empirical one-sided p-value
-        (`perm_pval`), and the z-score with its normal p-value (`z_score`, `z_pval`), and the
-        same statistics with respect to the null of the leading eigenvalue (`null_mean_first`,
-        `null_std_first`, `perm_pval_first`, `z_score_first`, `z_pval_first`);
-        `spca_null_distribution` – a data frame (sPCs × permutations) with the scaled
-        eigenvalues under permutations; `n_clones` – number of clones (clone-group pairs if
-        `split_obs` was used) retained in every permutation; and the parameters.
+    `clones.var` is updated (next to `morans_i` and `morans_i_pval` of
+    `graph_associations`) with the mean and the standard deviation of the null
+    (`null_mean`, `null_std`), the number of permutations with a defined Moran's I
+    (`n_permutations`), the empirical one-sided p-value (`perm_pval`, `perm_p_adj`), the
+    z-score with respect to the null and its normal p-value (`z_score`, `z_pval`,
+    `z_p_adj`), and D'Agostino-Pearson normality test of the null (`normaltest_stat`,
+    `normaltest_pval`). `clones.uns[key_added]` stores
+    `null_distribution` – a data frame (genes × permutations) with Moran's I values
+    under permutations; `spca` – a data frame (sPCs × statistics) with the observed
+    variance explained (`varexpl`), the scaled eigenvalue (`eval_norm`), its null mean and
+    standard deviation (`null_mean`, `null_std`), the empirical one-sided p-value
+    (`perm_pval`), and the z-score with its normal p-value (`z_score`, `z_pval`), and the
+    same statistics with respect to the null of the leading eigenvalue (`null_mean_first`,
+    `null_std_first`, `perm_pval_first`, `z_score_first`, `z_pval_first`);
+    `spca_null_distribution` – a data frame (sPCs × permutations) with the scaled
+    eigenvalues under permutations; `n_clones` – number of clones (clone-group pairs if
+    `split_obs` was used) retained in every permutation; and the parameters.
     """
     if "graph_associations" not in clones.uns:
         raise ValueError(

@@ -36,25 +36,24 @@ def clones_adata(
 
     Parameters
     ----------
-    adata : AnnData
+    adata
         The cell-level annotated data matrix.
-    obs_name : str, optional
+    obs_name
         Column in `adata.obs` containing clonal information, by default "clone".
-    min_size : int, optional
+    min_size
         Minimum clone size to be considered, by default 3.
-    na_value : str, optional
+    na_value
         Value indicating the absence of clonal information, by default "NA".
-    fill_obs : str | None, optional
+    fill_obs
         Column in `adata.obs` (e.g., 'cell_type') to calculate clone composition, by default None.
 
     Returns
     -------
-    AnnData
-        A new AnnData object where each observation is a clone. The `.X` matrix and
-        `.layers['proportions']` store composition proportions, and `.layers['counts']`
-        stores raw counts. The `.obs['n_cells']` column contains the number of
-        cells per clone. `.uns['filtered_clones']` keeps the names and sizes of the
-        clones smaller than `min_size`.
+    A new AnnData object where each observation is a clone. The `.X` matrix and
+    `.layers['proportions']` store composition proportions, and `.layers['counts']`
+    stores raw counts. The `.obs['n_cells']` column contains the number of
+    cells per clone. `.uns['filtered_clones']` keeps the names and sizes of the
+    clones smaller than `min_size`.
     """
     # Scanpy-style logging
     start = logg.info("creating clone-level AnnData")
@@ -150,19 +149,18 @@ def make_unique_clones(
     
     Parameters
     ----------
-    adata : AnnData
+    adata
         Annotated data matrix containing the clonal labels across multiple columns.
-    injection_cols : list[str]
+    injection_cols
         List of column names in `adata.obs` that contain the clonal labels.
-    na_value : str, optional
+    na_value
         The value used to indicate missing or absent clonal information. Default is "NA".
-    final_obs_name : str, optional
+    final_obs_name
         The name of the new column in `adata.obs` to store the merged clone labels. Default is "clone".
 
     Returns
     -------
-    AnnData
-        A new AnnData object with cells duplicated where necessary, with updated clonal labeling in the `final_obs_name` column.
+    A new AnnData object with cells duplicated where necessary, with updated clonal labeling in the `final_obs_name` column.
     """
     start = logg.info("creating unique per-cell clone labels")
 
@@ -201,20 +199,19 @@ def recalc_composition(
 
     Parameters
     ----------
-    adata : AnnData
+    adata
         Annotated data matrix at the cell level.
-    clones : AnnData
+    clones
         Annotated data matrix at the clone level.
-    fill_obs : str
+    fill_obs
         Column in `adata.obs` containing updated cell type / cluster labels.
-    obs_name : str | None, optional
+    obs_name
         Column in `adata.obs` containing clonal information, if None, try to get from `clones.uns['obs_name']`,
         by default None.
 
     Returns
     -------
-    AnnData
-        New annotated data matrix at the clone level with updated cell type proportions.
+    New annotated data matrix at the clone level with updated cell type proportions.
     """
     # Scanpy-style logging
     start = logg.info("recalculating clone composition")
@@ -283,28 +280,27 @@ def transfer_annotation(
 
     Parameters
     ----------
-    adata : AnnData
+    adata
         Annotated data matrix at the cell level.
-    clones : AnnData
+    clones
         Annotated data matrix at the clone level.
-    annotation_obs_clones : str | list[str] | None, optional
+    annotation_obs_clones
         Column(s) in `clones.obs` to transfer to `adata.obs` (clones to cells), by default None.
-    annotation_obs_adata : str | list[str] | None, optional
+    annotation_obs_adata
         Column(s) in `adata.obs` to transfer to `clones.obs` (cells to clones). Each clone must
         map to a single value, by default None.
-    created_obs_name : str | list[str] | None, optional
+    created_obs_name
         Name(s) of the created column(s), one per transferred column. If None, uses
         "c2v_<column>" for clones to cells and "gex_<column>" for cells to clones, by default None.
-    obs_name : str | None, optional
+    obs_name
         Column in `adata.obs` with the original clonal information. If None, uses
         `clones.uns["obs_name"]`, by default None.
-    na_value : str | None, optional
+    na_value
         Value to assign to cells with no matching clone in the `clones` object, by default "NA".
 
     Returns
     -------
-    None
-        The `adata` or `clones` object is modified in place with the new labels stored in `.obs[created_obs_name]`.
+    The `adata` or `clones` object is modified in place with the new labels stored in `.obs[created_obs_name]`.
     """
     # Scanpy-style logging
     start = logg.info("transferring annotations between cell and clone objects")
@@ -402,33 +398,33 @@ def transfer_expression(
 
     Parameters
     ----------
-    adata : AnnData
+    adata
         Annotated data matrix at the cell level with gene expression data.
-    clones : AnnData
+    clones
         Annotated data matrix at the clone level.
-    obs_name : str, optional
+    obs_name
         Column name in `adata.obs` containing clonal information. If not provided,
         the value from `clones.uns["obs_name"]` is used.
-    split_obs : str | None, optional
+    split_obs
         Column name in `adata.obs` to split the data for aggregation. If None,
         the entire dataset is used for aggregation, default None.
-    use_col : str | None, optional
+    use_col
         Column in `clones.obs` that groups clones (e.g. clonal clusters). If provided, expression
         is pooled over all cells of the clones in a group and every clone receives its group's
         profile, by default None.
-    strategy : Literal["sum", "average"], optional
+    strategy
         Strategy for aggregating gene expression ("sum" or "average"), by default "average".
-    layer : str | None, optional
+    layer
         If specified, summarizes expression from `adata.layers[layer]`, by default None.
-    use_raw : bool | None, optional
+    use_raw
         If specified, uses `adata.raw.X` for summarization, by default None.
-    layers_to_obsm : list[str] | str | None, optional
+    layers_to_obsm
         Layers of `clones` ("X" for `clones.X`) to keep as DataFrames in `.obsm` of the returned
         object. If None, `clones.X` and all `clones.layers` are kept, by default None.
-    presence_key : str, optional
+    presence_key
         Key in `clones_expr.obsm` for the table with numbers of cells of each `split_obs`
         group per clone (only used if `split_obs` is provided), by default "group_presence".
-    mask : bool | np.ndarray | pd.Series | str, optional
+    mask
         Cells of `adata` to use. If False, all cells are used. If a boolean vector of length
         `adata.n_obs`, equivalent to passing `adata[mask]`. If a string, the `key_added` of
         `tl.mask_heterogeneity`: only cells masked there (`clones.uns[mask]['clonal_nn']['mask']`)
@@ -437,13 +433,12 @@ def transfer_expression(
 
     Returns
     -------
-    AnnData
-        Annotated data matrix at the clone level with summarized gene expression in `.X`
-        and the number of aggregated cells in `.obs["n_cells_expr"]`. Aggregation parameters are
-        stored in `.uns["transfer_expression"]`. If `split_obs` is provided, the aggregation is
-        also performed within each group defined by `split_obs` and stored in `.layers[g]` where
-        `g` is the group name; clones without cells of that group contain NaN (dense input) or
-        zeros (sparse input). Clones without any expression are removed.
+    Annotated data matrix at the clone level with summarized gene expression in `.X`
+    and the number of aggregated cells in `.obs["n_cells_expr"]`. Aggregation parameters are
+    stored in `.uns["transfer_expression"]`. If `split_obs` is provided, the aggregation is
+    also performed within each group defined by `split_obs` and stored in `.layers[g]` where
+    `g` is the group name; clones without cells of that group contain NaN (dense input) or
+    zeros (sparse input). Clones without any expression are removed.
     """
     if obs_name is None:
         try:

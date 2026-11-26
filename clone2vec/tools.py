@@ -153,34 +153,34 @@ def clonal_nn(
 
     Parameters
     ----------
-    adata : AnnData
+    adata
         The original, cell-level annotated data matrix.
-    clones : AnnData
+    clones
         The clone-level AnnData object, typically from `c2v.pp.clones_adata`.
-    obs_name : str | None, optional
+    obs_name
         Column in `adata.obs` containing clonal information. If None, use `clones.uns["obs_name"]`, 
         by default None.
-    k : int, optional
+    k
         Number of nearest neighbors to retrieve for each cell, by default 15.
-    use_rep : str, optional
+    use_rep
         Representation in `adata.obsm` to build the kNN graph, by default "X_pca".
-    obsp_name : str, optional
+    obsp_name
         Name of the new graph slot in `clones.obsp`, by default "gex_adjacency".
-    adata_ref : sc.AnnData | None, optional
+    adata_ref
         Reference cell-level annotated data matrix for transfer, by default None.
-    clones_ref : sc.AnnData | None, optional
+    clones_ref
         Reference clone-level AnnData object for transfer, by default None.
-    nn_transfer_name : str, optional
+    nn_transfer_name
         Name of the new graph slot in `clones_ref.obsp` for transfer, by default "ref_gex_adjacency".
-    random_state : None | int, optional
+    random_state
         Random state for reproducibility, by default 4.
-    split_by : str | None, optional
+    split_by
         Column in `clones.obs` to split the independent kNN-graph constriction, by default None.
-    progress_bar : bool, optional
+    progress_bar
         Whether to display a progress bar in the case of split_by, by default False.
-    mask_obs : list[np.ndarray | pd.Series] | np.ndarray | pd.Series | None, optional
+    mask_obs
         Mask to exclude cells from the kNN graph construction, by default None.
-    masking_strategy : {"hide", "multinomial_average", "shuffle", "smooth"}, optional
+    masking_strategy
         How neighbourhoods of masked cells are treated (only used if `mask_obs` is provided),
         by default "hide".
 
@@ -202,13 +202,12 @@ def clonal_nn(
           each masked cell adds its expected neighbour counts ``k * profile / sum(profile)``,
           so the adjacency becomes non-integer (float). Mask assignment, `split_by` handling and
           the `.obsm['masked_nn']` note are the same as for ``"multinomial_average"``.
-    **kwargs : dict, optional
+    **kwargs
         Additional keyword arguments to pass to `pynndescent.NNDescent`.
 
     Returns
     -------
-    None
-        Updates `clones` in-place with the computed adjacency graph in `.obsp[obsp_name]`.
+    Updates `clones` in-place with the computed adjacency graph in `.obsp[obsp_name]`.
     """
     start = logg.info("computing clone-to-clone adjacency graph")
     import pynndescent
@@ -506,24 +505,23 @@ def mask_heterogeneity(
 
     Parameters
     ----------
-    adata : AnnData
+    adata
         The original, cell-level annotated data matrix.
-    clones : AnnData
+    clones
         The clone-level AnnData object with `clonal_nn` and `clone2vec` already computed.
-    mask : np.ndarray | pd.Series
+    mask
         Boolean mask of length `adata.n_obs` marking cells to mask.
-    key_added : str, optional
+    key_added
         Key under which results are stored in `clones`, by default "mask".
 
     Returns
     -------
-    None
-        Updates `clones` in-place with:
+    Updates `clones` in-place with:
 
-        - `.obsm['{c2v_key}_{key_added}']`: embedding matrix fitted on the masked graph
-          (`c2v_key` is "clone2vec" or "clone2vec_Poi").
-        - `.uns[key_added]`: dictionary with `clonal_nn` parameters (under "clonal_nn") and
-          training details (under `c2v_key`).
+    - `.obsm['{c2v_key}_{key_added}']`: embedding matrix fitted on the masked graph
+      (`c2v_key` is "clone2vec" or "clone2vec_Poi").
+    - `.uns[key_added]`: dictionary with `clonal_nn` parameters (under "clonal_nn") and
+      training details (under `c2v_key`).
     """
     hint = (
         "`mask_heterogeneity` is a wrapper that inherits the parameters of the original "
@@ -616,26 +614,25 @@ def smooth(
 
     Parameters
     ----------
-    adata : AnnData
+    adata
         Annotated data matrix at the clone level.
-    field : Literal["X", "layer", "obs", "obsm"], optional
+    field
         Field to smooth, by default "X".
-    names : str | list[str] | None, optional
+    names
         Key(s) in `adata.layers`, `adata.obs`, or `adata.obsm` containing field to smooth, by default None.
-    key_added : str, optional
+    key_added
         Key for `adata.layers`, `adata.obs`, or `adata.obsm` to store smoothed field.
-    graph_key : str, optional
+    graph_key
         Key in `adata.obsp` containing kNN graph, by default "connectivities".
-    progress_bar : bool, optional
+    progress_bar
         Whether to display a progress bar, by default False.
-    n_steps : int, optional
+    n_steps
         Number of smoothing iterations, by default 3.
 
     Returns
     -------
-    None
-        Smoothed field is stored in `adata.layers["X_" + key_added]`, `adata.layers[name + "_" + key_added]`,
-        `adata.obs[name + "_" + key_added]`, or `adata.obsm[name + "_" + key_added]`.
+    Smoothed field is stored in `adata.layers["X_" + key_added]`, `adata.layers[name + "_" + key_added]`,
+    `adata.obs[name + "_" + key_added]`, or `adata.obsm[name + "_" + key_added]`.
     """
     start = logg.info("smoothing fields using kNN graph")
 
@@ -739,7 +736,7 @@ def clonocluster(
     key_added: str = "clonocluster",
     graph_key: str | None = None,
     lineage_graph: str = "connected",
-):
+) -> None:
     """
     Performing ClonoCluster [PMID: 36819662] algorithm for lineage-informed gene expression clustering.
 
@@ -749,27 +746,26 @@ def clonocluster(
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         Cell-level annotated data matrix with a kNN graph (`sc.pp.neighbors`) and a lineage graph.
-    alpha : float, optional
+    alpha
         Parameter for clonocluster algorithm, should be between 0 and 1. 0 means no inclusion of lineage information,
         1 means that only lineage information is used. Default is 0.2.
-    beta : float, optional
+    beta
         Exponent applied to `alpha`, should be between 0 and 1. Default is 0.1.
-    key_added : str, optional
+    key_added
         Prefix for the outputs: connectivities are stored in `adata.obsp[f"{key_added}_connectivities"]`
         and graph metadata in `adata.uns[key_added]`. Default is "clonocluster".
-    graph_key : str | None, optional
+    graph_key
         Key in `adata.uns` with the expression neighbors graph metadata. If None, uses "neighbors".
         Default is None.
-    lineage_graph : str, optional
+    lineage_graph
         Key in `adata.obsp` with the lineage graph (e.g. from `c2v.utils.connect_clones`).
         Default is "connected".
 
     Returns
     -------
-    None
-        Adds `adata.obsp[f"{key_added}_connectivities"]` and `adata.uns[key_added]`.
+    Adds `adata.obsp[f"{key_added}_connectivities"]` and `adata.uns[key_added]`.
     """
     if not 0 <= beta <= 1:
         raise ValueError("beta must be between 0 and 1")
@@ -816,27 +812,26 @@ def group_connectivity(
     graph_key: str = "connectivities",
     directed: bool = True,
     uns_key_added: str = "group_connectivity",
-):
+) -> None:
     """
     Computes connectivities (number of observed over the number of expected edges) of groups based on the graph.
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         Annotated data matrix at the cell level.
-    groupby : str
+    groupby
         Key in `adata.obs` to use for grouping cells.
-    graph_key : str, optional
+    graph_key
         Key in `adata.obsp` to use for the graph, by default "connectivities".
-    directed : bool, optional
+    directed
         Whether to assume a directed graph, by default True.
-    uns_key_added : str, optional
+    uns_key_added
         Key in `adata.uns` to store the group connectivity matrix, by default "group_connectivity".
 
     Returns
     -------
-    None
-        The `adata` object is modified in place with the group connectivity matrix stored in `.uns[uns_key_added]`.
+    The `adata` object is modified in place with the group connectivity matrix stored in `.uns[uns_key_added]`.
     """
     start = logg.info("computing groups connectivity matrix")
     n_obs = adata.n_obs

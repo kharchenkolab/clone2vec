@@ -32,15 +32,14 @@ def Lareau_in_vitro(
 
     Parameters
     ----------
-    embedding_type : Literal["gex", "c2v"], optional
+    embedding_type
         Type of embedding to use, by default "gex".
-    file_path : str | Path | None, optional
+    file_path
         Path where .h5ad-container will be stored, by default None.
 
     Returns
     -------
-    AnnData
-        Annotated data matrix with the dataset.
+    Annotated data matrix with the dataset.
     """
     if embedding_type == "c2v":
         logg.info("using clonal embedding (compositions in adata.X)")
@@ -66,15 +65,14 @@ def Liu_NSCLC_CD8(
 
     Parameters
     ----------
-    embedding_type : Literal["gex", "c2v"], optional
+    embedding_type
         Type of embedding to use, by default "gex".
-    file_path : str | Path | None, optional
+    file_path
         Path where .h5ad-container will be stored, by default None.
 
     Returns
     -------
-    AnnData
-        Annotated data matrix with the dataset.
+    Annotated data matrix with the dataset.
     """
     if embedding_type == "c2v":
         logg.info("using clonal embedding (compositions in adata.X)")
@@ -100,15 +98,14 @@ def Ireland_SCLC(
 
     Parameters
     ----------
-    embedding_type : Literal["gex", "c2v"], optional
+    embedding_type
         Type of embedding to use, by default "gex".
-    file_path : str | Path | None, optional
+    file_path
         Path where .h5ad-container will be stored, by default None.
 
     Returns
     -------
-    AnnData
-        Annotated data matrix with the dataset.
+    Annotated data matrix with the dataset.
     """
     if embedding_type == "c2v":
         logg.info("using clonal embedding (compositions in adata.X)")
@@ -134,15 +131,14 @@ def Weinreb_in_vitro(
 
     Parameters
     ----------
-    embedding_type : Literal["gex", "c2v"], optional
+    embedding_type
         Type of embedding to use, by default "gex".
-    file_path : str | Path | None, optional
+    file_path
         Path where .h5ad-container will be stored, by default None.
 
     Returns
     -------
-    AnnData
-        Annotated data matrix with the dataset.
+    Annotated data matrix with the dataset.
     """
     if embedding_type == "c2v":
         logg.info("using clonal embedding (compositions in adata.X)")
@@ -170,20 +166,19 @@ def Erickson_murine_development(
 
     Parameters
     ----------
-    perturbed : bool, optional
+    perturbed
         If the dataset should contain also experiments with mosaic knockouts,
         by default False.
-    region : str, optional
+    region
         Region of interest, one of `trunk` or `head`, by default "trunk".
-    subset : str, optional
+    subset
         Subset of interest (`all`,  `neurons`, `mesenchyme` or `other`), by default "all".
-    file_path : str | Path | None, optional
+    file_path
         Path where .h5ad-container will be stored, by default None.
 
     Returns
     -------
-    AnnData
-        Annotated data matrix with the dataset
+    Annotated data matrix with the dataset
     """
     datasets = {
         False: {

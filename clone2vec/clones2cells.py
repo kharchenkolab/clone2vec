@@ -3,7 +3,10 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from html import escape
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    import ipywidgets
 
 import numpy as np
 import pandas as pd
@@ -302,7 +305,7 @@ def clones2cells(
     cells_opacity: float = 1.0,
     clones_tooltip: bool = True,
     show: bool = True,
-) -> "ipywidgets.VBox | None":
+) -> ipywidgets.VBox | None:
     """
     Two linked interactive scatterplots: cells (left) and clones (right).
 
@@ -376,8 +379,7 @@ def clones2cells(
 
     Returns
     -------
-    ipywidgets.VBox | None
-        The widget if `show` is False, otherwise None.
+    The widget if `show` is False, otherwise None.
 
     Notes
     -----

@@ -8,8 +8,11 @@ import pandas as pd
 import os
 import sys
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 from tqdm import tqdm
+
+if TYPE_CHECKING:
+    from catboost import CatBoostClassifier, CatBoostRegressor, Pool
 
 from .utils import _nan_mask
 from .associations import _clr, _fast_corr_cols
@@ -22,11 +25,11 @@ class _catboost_tqdm:
 
     Parameters
     ----------
-    total_iterations : int
+    total_iterations
         Total number of iterations.
-    show : bool, optional
+    show
         Whether to show the progress bar, by default True.
-    prefix : str, optional
+    prefix
         Prefix for the progress bar, by default "".
     """
     def __init__(self, total_iterations, show: bool = True, prefix: str = ""):
@@ -64,7 +67,7 @@ class _catboost_tqdm:
         self.pbar = None
 
 def _prepare_pools(
-    clones,
+    clones: sc.AnnData,
     obsm_key: str,
     gs_key: str | None = None,
     validation_key: str | None = None,
@@ -83,35 +86,34 @@ def _prepare_pools(
 
     Parameters
     ----------
-    clones : AnnData
+    clones
         AnnData object with cell metadata and embeddings.
-    obsm_key : str
+    obsm_key
         Key in `clones.obsm` to use as the embedding.
-    gs_key : str | None, optional
+    gs_key
         Key in `clones.uns` to use for group splitting. Default is None.
-    validation_key : str | None, optional
+    validation_key
         Column in `clones.obs` to use for validation split. Default is None.
-    validation_value : str | None, optional
+    validation_value
         Value in `validation_key` to use for validation split. Default is None.
-    features : list[str] | None, optional
+    features
         List of features to use as predictors. Default is None.
-    use_raw : bool | None, optional
+    use_raw
         Whether to use `clones.raw` for feature selection. Default is None.
-    layer : str | None, optional
+    layer
         Layer in `clones.layers` to use for feature selection. Default is None.
-    response_transform : None | Literal["logit", "log1p", "sqrt"], optional
+    response_transform
         Transform to apply to the response variable. Default is None.
-    clr_pseudocount : float, optional
+    clr_pseudocount
         Pseudocount to add to expression values before CLR transformation, by default 1e-3.
-    split_multi : bool, optional
+    split_multi
         Whether to split multi-dimensional response into multiple pools. Default is False.
-    min_size : int, optional
+    min_size
         Minimum amount of non-zero values for each feature in the train and validation datasets. Default is 3.
 
     Returns
     -------
-    tuple[Pool, Pool, Pool, np.ndarray]
-        Full, train, validation pools and validation mask.
+    Full, train, validation pools and validation mask.
     """
     try:
         from catboost import Pool
@@ -293,78 +295,78 @@ def catboost(
     
     Parameters
     ----------
-    clones : sc.AnnData
+    clones
         Annotated data matrix at the clone level.
-    obsm_key : str
+    obsm_key
         Key in `clones.obsm` to use for the response variable.
-    gs_key : str | None, optional
+    gs_key
         Key in `clones.uns` with `c2v.utils.gs()` parameters. If None, uses "gs". Default is None.
-    validation_key : str | None, optional
+    validation_key
         Key in `clones.obs` to use for the train/validation split. If None, reconstructed from
         the clones.uns[gs_key]. Default is None.
-    validation_value : str | None, optional
+    validation_value
         Value in `clones.obs[validation_key]` to use for the validation set. If None,
         reconstructed from the clones.uns[gs_key]. Default is None.
-    features : list[str] | None, optional
+    features
         List of additional clones.obs columns to use for the model (e.g. batch labels, layer names,
         and so on). Default is None.
-    use_raw : bool | None, optional
+    use_raw
         Whether to use `clones.raw` for feature selection. Default is None.
-    layer : str | None, optional
+    layer
         Layer in `clones.layers` to use for feature selection. Default is None.
-    min_size : int, optional
+    min_size
         Minimum number of clones with a non-zero response in both the train and the validation
         sets; response columns (fates) below it are excluded. Default is 3.
-    model : Literal["regressor", "classifier"], optional
+    model
         Whether to perform regression or classification. Default is "regressor".
-    num_trees : int, optional
+    num_trees
         Number of trees to build. Default is 10000.
-    early_stopping_rounds : int, optional
+    early_stopping_rounds
         Number of iterations with no improvement on validation set after which training will be stopped.
         Default is 100.
-    verbose : bool, optional
+    verbose
         Whether to print verbose output. Default is True.
-    loss : str | None, optional
+    loss
         Loss function to use. If None, set to "MultiRMSE" for multivariable regression,
         "RMSE" for univariable regression, "MultiCrossEntropy" for multivariable classification,
         and "CrossEntropy" for univariable classification. Default is None.
-    eval_metric : str | None, optional
+    eval_metric
         Evaluation metric to use. Default is None.
-    response_transform : Literal["logit", "log1p", "sqrt", "clr"] | None, optional
+    response_transform
         Transform to apply to the response variable. Default is None.
-    use_gpu : bool | None, optional
+    use_gpu
         Whether to use GPU for training. Default is None.
-    random_state : int | None, optional
+    random_state
         Random seed for reproducibility. Default is 42.
-    prediction_key_added : str, optional
+    prediction_key_added
         Suffix of the key with predicted values in the returned object:
         `shapdata.obsm[f"{obsm_key}:{prediction_key_added}"]`. Default is "predicted".
-    return_model : bool, optional
+    return_model
         Whether to return the trained model. Default is False.
-    save_model : str | os.PathLike | None, optional
+    save_model
         Path to save the trained model. Default is None.
-    progress_bar : bool, optional
+    progress_bar
         Whether to show a progress bar during training. Default is True.
-    catboost_dir : os.PathLike | str | None, optional
+    catboost_dir
         Directory to save CatBoost training information. Default is None.
-    presence_key : str | None | Literal[False], optional
+    presence_key
         Key in `clones.obsm` with a clone-by-layer presence matrix; when `layer` is set, clones
         with zero presence in that layer are excluded. If None, uses `clones.uns["presence_key"]`
         when available; False disables filtering. Default is None.
-    clr_pseudocount : float, optional
+    clr_pseudocount
         Pseudocount used for the CLR response transformation, by default 1e-3.
     **kwargs
         Additional keyword arguments to pass to CatBoostRegressor or CatBoostClassifier.
 
     Returns
     -------
-    shapdata : sc.AnnData
+    shapdata
         Clone-by-feature AnnData with mean absolute SHAP values in `.X`, per-response SHAP values
         in `.layers`, the (transformed) response in `.obsm[obsm_key]`, predictions in
         `.obsm[f"{obsm_key}:{prediction_key_added}"]`, SHAP summaries in `.varm["mean_shap"]` and
         `.varm["gex_r"]`, the validation mask in `.obs["validation"]` and parameters in
         `.uns["catboost_info"]`.
-    model : CatBoostRegressor | CatBoostClassifier
+    model
         Trained CatBoost model, returned only if `return_model=True`.
     """
     import tempfile

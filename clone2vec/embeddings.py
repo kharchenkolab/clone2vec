@@ -25,13 +25,12 @@ def _create_pairs(X: np.ndarray | sp.spmatrix) -> list[tuple[int, int]]:
 
     Parameters
     ----------
-    X : np.ndarray or sp.spmatrix
+    X
         Input matrix.
 
     Returns
     -------
-    list[tuple[int, int]]
-        List of pairs (i, j) where X[i, j] is non-zero.
+    List of pairs (i, j) where X[i, j] is non-zero.
     """
 
     if sp.issparse(X):
@@ -68,9 +67,9 @@ class SkipGram(nn.Module):
 
         Parameters
         ----------
-        z_dim : int
+        z_dim
             Dimensionality of the embedding space.
-        device : str or None, optional
+        device
             Preferred compute device. If None, it will be auto-detected.
         """
         super().__init__()
@@ -88,13 +87,12 @@ class SkipGram(nn.Module):
 
         Parameters
         ----------
-        device : str or None, optional
+        device
             Device to use for training. If None, it will be auto-detected. Default is None.
 
         Returns
         -------
-        str
-            The selected compute device.
+        The selected compute device.
         """
         if device is None:
             if torch.cuda.is_available():
@@ -127,9 +125,9 @@ class SkipGram(nn.Module):
 
         Parameters
         ----------
-        input_vocab_size : int
+        input_vocab_size
             Size of the input vocabulary.
-        output_vocab_size : int
+        output_vocab_size
             Size of the output vocabulary.
         """
         if not self.is_fitted_:
@@ -177,37 +175,36 @@ class SkipGram(nn.Module):
 
         Parameters
         ----------
-        X : np.ndarray or sp.spmatrix
+        X
             Input count matrix.
-        random_state : int or None, optional
+        random_state
             Random seed for reproducibility. Default is 42.
-        batch_size : int, optional
+        batch_size
             Batch size for training. Default is 128.
-        device : str or None, optional
+        device
             Device to use for training. Default is None.
-        learning_rate : float, optional
+        learning_rate
             Learning rate for Adam optimizer. Default is 0.001.
-        early_stopping_patience : int, optional
+        early_stopping_patience
             Patience for early stopping. Default is 5.
-        early_stopping_min_delta : float, optional
+        early_stopping_min_delta
             Minimum delta for early stopping. Default is 1e-4.
-        progress_bar : bool, optional
+        progress_bar
             Whether to show a progress bar. Default is True.
-        max_iter : int, optional
+        max_iter
             Maximum number of iterations. Default is 500.
-        return_model : bool, optional
+        return_model
             Whether to return the fitted model. Default is False.
-        init : Literal["svd", "random", "custom"], optional
+        init
             Initialization method for embeddings. Default is "random".
-        init_embeddings : np.ndarray or None, optional
+        init_embeddings
             Custom initial embeddings. Default is None.
-        init_output_weight : np.ndarray or None, optional
+        init_output_weight
             Custom initial output weight. Default is None.
 
         Returns
         -------
-        np.ndarray or SkipGram
-            If return_model is True, returns the fitted model. Otherwise, returns the embeddings.
+        If return_model is True, returns the fitted model. Otherwise, returns the embeddings.
         """
         if random_state is not None:
             torch.manual_seed(random_state)
@@ -361,15 +358,14 @@ class SkipGram(nn.Module):
 
         Parameters
         ----------
-        X : np.ndarray or sp.spmatrix
+        X
             Input count matrix.
-        z_dim : int
+        z_dim
             Target dimensionality.
 
         Returns
         -------
-        tuple[np.ndarray, np.ndarray]
-            Tuple of `(init_embeddings, init_output_weight)` arrays.
+        Tuple of `(init_embeddings, init_output_weight)` arrays.
         """
         from scipy.sparse.linalg import svds
         from scipy.linalg import svd
@@ -413,31 +409,30 @@ class SkipGram(nn.Module):
 
         Parameters
         ----------
-        X_new : np.ndarray or sp.spmatrix
+        X_new
             New count matrix to project.
-        random_state : int | None, optional
+        random_state
             Random seed for reproducibility. Default is 42.
-        batch_size : int, optional
+        batch_size
             Batch size for training. Default is 128.
-        device : str | None, optional
+        device
             Device to use for training. If None, it will be auto-detected. Default is None.
-        learning_rate : float, optional
+        learning_rate
             Learning rate for Adam optimizer. Default is 0.001.
-        early_stopping_patience : int, optional
+        early_stopping_patience
             Patience for early stopping. Default is 5.
-        early_stopping_min_delta : float, optional
+        early_stopping_min_delta
             Minimum delta for early stopping. Default is 1e-4.
-        progress_bar : bool, optional
+        progress_bar
             Whether to show a progress bar. Default is True.
-        max_iter : int, optional
+        max_iter
             Maximum number of iterations. Default is 500.
-        return_model : bool, optional
+        return_model
             Whether to return the fitted model. Default is False.
 
         Returns
         -------
-        np.ndarray or SkipGram
-            Projected embeddings or the fitted model.
+        Projected embeddings or the fitted model.
         """
         if not self.is_fitted_:
             raise RuntimeError("Model must be fitted before projecting new data. Call fit() first.")
@@ -560,49 +555,48 @@ def clone2vec(
 
     Parameters
     ----------
-    clones : AnnData
+    clones
         The clone-level AnnData object, typically from `c2v.pp.clones_adata`.
-    z_dim : int, optional
+    z_dim
         Dimensionality of the clonal embedding, by default 10.
-    obsp_key : str, optional
+    obsp_key
         Key in `clones.obsp` for the graph to use, by default "gex_adjacency".
-    mask_key : str | None, optional
+    mask_key
         Key in `clones.obsm` with an additional clone-by-feature matrix (e.g. masked cell
         counts from `c2v.tl.mask_heterogeneity`) appended as extra columns to the graph
         before fitting, by default None.
-    max_iter : int, optional
+    max_iter
         Maximum number of iterations for optimization, by default 500.
-    learning_rate : float | None, optional
+    learning_rate
         Learning rate for optimization, by default 0.001.
-    device : str | None, optional
+    device
         Torch device to use for computation (e.g. "cpu", "cuda"), by default None
         (picked automatically).
-    progress_bar : bool, optional
+    progress_bar
         Whether to show a progress bar, by default True.
-    obsm_key : str, optional
+    obsm_key
         Key in `clones.obsm` to store the embeddings, by default "clone2vec".
-    uns_key : str, optional
+    uns_key
         Key in `clones.uns` to store the training details (model weights, loss history),
         by default "clone2vec".
-    random_state : None | int, optional
+    random_state
         Random state for reproducibility, by default 4.
-    init : Literal["svd", "random", "custom"], optional
+    init
         Initialization method, if "svd", uses SVD on the log1p-transformed counts, if "custom",
         uses `clones.obsm[init_obsm]`, by default "svd".
-    init_obsm : str | None, optional
+    init_obsm
         Key in `clones.obsm` for custom initialization (must have `z_dim` columns), by default None.
-    batch_size : int, optional
+    batch_size
         Batch size for optimization, by default 128.
-    early_stopping_patience : int, optional
+    early_stopping_patience
         Number of iterations with no improvement to wait before stopping, by default 5.
-    early_stopping_min_delta : float, optional
+    early_stopping_min_delta
         Minimum change in loss to qualify as an improvement, by default 1e-4.
 
     Returns
     -------
-    None
-        Adds the embedding to `clones.obsm[obsm_key]` and the training details to
-        `clones.uns[uns_key]`.
+    Adds the embedding to `clones.obsm[obsm_key]` and the training details to
+    `clones.uns[uns_key]`.
     """
     start = logg.info("fitting clone2vec embeddings")
     if obsp_key not in clones.obsp:
@@ -727,60 +721,59 @@ def clone2vec_Poi(
 
     Parameters
     ----------
-    clones : AnnData
+    clones
         The clone-level AnnData object, typically from `c2v.pp.clones_adata`.
-    z_dim : int, optional
+    z_dim
         Dimensionality of the clonal embedding, by default 10.
-    obsp_key : str, optional
+    obsp_key
         Key in `clones.obsp` for the graph to use, by default "gex_adjacency".
-    mask_key : str | None, optional
+    mask_key
         Key in `clones.obsm` with an additional clone-by-feature matrix (e.g. masked cell
         counts from `c2v.tl.mask_heterogeneity`) appended as extra columns to the graph
         before fitting, by default None.
-    max_iter : int, optional
+    max_iter
         Maximum number of iterations for optimization, by default 500.
-    tol : float, optional
+    tol
         Tolerance for convergence, by default 1e-4.
-    learning_rate : float | None, optional
+    learning_rate
         Learning rate for optimization, by default 0.5.
-    device : str | None, optional
+    device
         Device to use for computation, by default None.
-    progress_bar : bool, optional
+    progress_bar
         Whether to show a progress bar, by default True.
-    obsm_key : str, optional
+    obsm_key
         Key in `clones.obsm` to store the embeddings, by default "clone2vec_Poi".
-    uns_key : str, optional
+    uns_key
         Key in `clones.uns` to store the model parameters, by default "clone2vec_Poi".
-    random_state : None | int, optional
+    random_state
         Random state for reproducibility, by default 4.
-    col_size_factor : bool, optional
+    col_size_factor
         Whether to use column size factors, by default True.
-    row_intercept : bool, optional
+    row_intercept
         Whether to use row intercepts, by default True.
-    num_ccd_iter : int, optional
+    num_ccd_iter
         Number of CCD iterations, by default 3.
-    adaptive_lr : bool, optional
+    adaptive_lr
         If True, reduce learning rate on log-likelihood drops. Default is True.
-    slowing_loglik : bool, optional
+    slowing_loglik
         If True, adaptively reduce learning rate when log-likelihood changing rate increases. Default is True.
-    lr_decay : float, optional
+    lr_decay
         Multiplicative decay factor applied when log-likelihood decreases. Default is 0.5.
-    min_learning_rate : float, optional
+    min_learning_rate
         Minimum allowed learning rate during adaptation. Default is 1e-5.
-    max_backtracks : int, optional
+    max_backtracks
         Maximum number of backtracking retries per iteration when log-likelihood decreases. Default is 3.
-    batch_size_rows : int | None, optional
+    batch_size_rows
         Number of rows (clones) per mini-batch, by default None (full batch).
-    batch_size_cols : int | None, optional
+    batch_size_cols
         Number of columns (neighbour clones) per mini-batch, by default None (full batch).
-    init : str, optional
+    init
         Initialization method passed to `fastglmpca.poisson`, by default "svd".
 
     Returns
     -------
-    None
-        Adds the embedding to `clones.obsm[obsm_key]` and the model parameters to
-        `clones.uns[uns_key]`.
+    Adds the embedding to `clones.obsm[obsm_key]` and the model parameters to
+    `clones.uns[uns_key]`.
     """
     try:
         import fastglmpca
@@ -941,46 +934,45 @@ def project_clone2vec(
 
     Parameters
     ----------
-    clones_query : sc.AnnData
+    clones_query
         The query clone-level AnnData object, typically from `c2v.pp.clones_adata`.
-    clones_ref : sc.AnnData
+    clones_ref
         The reference clone-level AnnData object, typically from `c2v.pp.clones_adata`.
-    obsm_key_query : str, optional
+    obsm_key_query
         Key in `clones_query.obsm` with the query-to-reference neighbour counts (columns are
         reference clones), by default "ref_gex_adjacency".
-    uns_key_query : str, optional
+    uns_key_query
         Key in `clones_query.uns` to store the training details, by default "clone2vec".
-    uns_key_ref : str, optional
+    uns_key_ref
         Key in `clones_ref.uns` with the fitted reference model from `c2v.tl.clone2vec`,
         by default "clone2vec".
-    obsm_key : str, optional
+    obsm_key
         Key in `clones_query.obsm` to store the embeddings, by default "clone2vec".
-    mask_key : str | None, optional
+    mask_key
         Key in `clones_query.obsm` with an additional matrix appended as extra columns to the
         neighbour counts; output weights for these columns are initialised with zeros,
         by default None.
-    random_state : None | int, optional
+    random_state
         Random state for reproducibility, by default 42.
-    batch_size : int, optional
+    batch_size
         Batch size for optimization, by default 128.
-    device : str | None, optional
+    device
         Device to use for optimization, by default None.
-    learning_rate : float, optional
+    learning_rate
         Learning rate for optimization, by default 0.001.
-    early_stopping_patience : int, optional
+    early_stopping_patience
         Number of iterations with no improvement to wait before stopping, by default 5.
-    early_stopping_min_delta : float, optional
+    early_stopping_min_delta
         Minimum change in the loss to be considered as an improvement, by default 1e-4.
-    progress_bar : bool, optional
+    progress_bar
         Whether to show a progress bar, by default True.
-    max_iter : int, optional
+    max_iter
         Maximum number of iterations, by default 500.
 
     Returns
     -------
-    None
-        Adds the projected embedding to `clones_query.obsm[obsm_key]` and the training
-        details to `clones_query.uns[uns_key_query]`.
+    Adds the projected embedding to `clones_query.obsm[obsm_key]` and the training
+    details to `clones_query.uns[uns_key_query]`.
     """
     start = logg.info("projecting clone2vec embeddings onto reference")
     start_time = time.time()
@@ -1078,7 +1070,7 @@ def project_clone2vec_Poi(
     random_state: int | None = 42,
     init: str = "svd",
     **kwargs,
-):
+) -> None:
     """
     Fitting of new clones to the reference clone2vec Poisson embeddings using kNN between query and reference datasets.
     The function is using output embedding from the reference clone2vec model and optimizes only input embedding matrix,
@@ -1086,43 +1078,42 @@ def project_clone2vec_Poi(
 
     Parameters
     ----------
-    clones_query : AnnData
+    clones_query
         The query clone-level AnnData object, typically from `c2v.pp.clones_adata`.
-    clones_ref : AnnData
+    clones_ref
         The reference clone-level AnnData object, typically from `c2v.pp.clones_adata`.
-    obsm_key_query : str, optional
+    obsm_key_query
         Key in `clones_query.obsm` with the query-to-reference neighbour counts (columns are
         reference clones), by default "ref_gex_adjacency".
-    uns_key_query : str, optional
+    uns_key_query
         Key in `clones_query.uns` to store the training details, by default "clone2vec_Poi_project".
-    uns_key_ref : str, optional
+    uns_key_ref
         Key in `clones_ref.uns` with the fitted reference model from `c2v.tl.clone2vec_Poi`,
         by default "clone2vec_Poi".
-    obsm_key : str, optional
+    obsm_key
         Key in `clones_query.obsm` to store the embeddings, by default "clone2vec_Poi".
-    mask_key : str | None, optional
+    mask_key
         Key in `clones_query.obsm` with an additional matrix appended as extra columns to the
         neighbour counts; loadings for these columns are initialised with zeros, by default None.
-    max_iter : int, optional
+    max_iter
         Maximum number of iterations, by default 500.
-    tol : float, optional
+    tol
         Tolerance for convergence, by default 1e-4.
-    device : str | None, optional
+    device
         Device to use for optimization, by default None.
-    progress_bar : bool, optional
+    progress_bar
         Whether to show a progress bar, by default True.
-    random_state : None | int, optional
+    random_state
         Random state for reproducibility, by default 42.
-    init : str, optional
+    init
         Initialization method for the model, by default "svd".
     **kwargs
         Currently ignored.
 
     Returns
     -------
-    None
-        Adds the projected embedding to `clones_query.obsm[obsm_key]` and the training
-        details to `clones_query.uns[uns_key_query]`.
+    Adds the projected embedding to `clones_query.obsm[obsm_key]` and the training
+    details to `clones_query.uns[uns_key_query]`.
     """
     try:
         import fastglmpca

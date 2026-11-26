@@ -8,8 +8,12 @@ import pandas as pd
 import sys
 import os
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 from tqdm import tqdm
+
+if TYPE_CHECKING:
+    import mudata
+    import rpy2.robjects as ro
 
 logg = sc.logging
 
@@ -120,7 +124,7 @@ def read(
     use_slots: Literal["counts", "data"] | list[Literal["counts", "data"]] = ["counts", "data"],
     graphs: bool = True,
     dimreds: bool = True,
-) -> "mudata.MuData":
+) -> mudata.MuData:
     """
     Reads .rds-file or .qsave-file with Seurat object and returns MuData object.
 
@@ -128,26 +132,25 @@ def read(
 
     Parameters
     ----------
-    path: str | os.PathLike
+    path
         Path to the .rds (or .qsave if `qs=True`) file with a Seurat object.
-    qs: bool, optional
+    qs
         Whether to use qs package to read the file. Default is False.
-    assays: str | list[str] | None, optional
+    assays
         Assays to process. If None, all assays are processed.
-    use_slots: Literal["counts", "data"] | list[Literal["counts", "data"]], optional
+    use_slots
         Slots to use for counts. Can be "counts" or "data". Default is ["counts", "data"].
-    graphs: bool, optional
+    graphs
         Whether to process graphs. Default is True.
-    dimreds: bool, optional
+    dimreds
         Whether to process dimensionality reductions. Default is True.
 
     Returns
     -------
-    mudata.MuData
-        MuData object with one modality per assay (`.X` from the "data" slot and `.raw` from
-        the "counts" slot when both are read), cell metadata in `.obs`, dimensionality
-        reductions in `.obsm`, graphs in `.obsp` and Seurat command history in
-        `.uns["seurat_commands"]`.
+    MuData object with one modality per assay (`.X` from the "data" slot and `.raw` from
+    the "counts" slot when both are read), cell metadata in `.obs`, dimensionality
+    reductions in `.obsm`, graphs in `.obsp` and Seurat command history in
+    `.uns["seurat_commands"]`.
     """
     logg.warning("This is an rpy2-wrapper around Seurat. This function is very RAM intensive and has a poor garbage collection.")
 
@@ -423,9 +426,8 @@ def integrate_data(
 
     Returns
     -------
-    None
-        Adds the anchor graph to `adata.obsp[mnn_graph_key]`, the parameters to `adata.uns[uns_key]`
-        and, unless `only_anchors`, the integrated expression to `adata.layers[layer_name]`.
+    Adds the anchor graph to `adata.obsp[mnn_graph_key]`, the parameters to `adata.uns[uns_key]`
+    and, unless `only_anchors`, the integrated expression to `adata.layers[layer_name]`.
     """
     logg.warning("This is an rpy2-wrapper around Seurat. This function is very RAM intensive and has a poor garbage collection.")
     

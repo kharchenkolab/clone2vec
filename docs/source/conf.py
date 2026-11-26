@@ -50,18 +50,20 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "sphinx": ("https://www.sphinx-doc.org/en/master/", None),
     "scanpy": ("https://scanpy.readthedocs.io/en/stable/", None),
+    "anndata": ("https://anndata.scverse.org/en/stable/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
+    "torch": ("https://pytorch.org/docs/stable/", None),
+    "mudata": ("https://mudata.readthedocs.io/en/latest/", None),
+    "ipywidgets": ("https://ipywidgets.readthedocs.io/en/stable/", None),
 }
 intersphinx_disabled_domains = ["std"]
 
 templates_path = ["_templates"]
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
-
-numpydoc_xref_param_type = True
-numpydoc_xref_ignore = {"optional", "type_without_description", "BadException"}
-
-# Run docstring validation as part of build process
-numpydoc_validation_checks = {"all", "GL01", "SA04", "RT03"}
 
 # -- Options for HTML output
 
@@ -100,13 +102,20 @@ autodoc_default_options = {
     "inherited-members": True,
     "show-inheritance": True,
 }
-autodoc_typehints = "description"
-autodoc_typehints_format = "short"
+autodoc_typehints = "none"
 autodoc_docstring_signature = True
+qualname_overrides = {
+    "anndata._core.anndata.AnnData": "anndata.AnnData",
+    "numpy.random._generator.Generator": "numpy.random.Generator",
+    "pandas.core.series.Series": "pandas.Series",
+    "scipy.sparse._matrix.spmatrix": "scipy.sparse.spmatrix",
+    "scipy.sparse._csr.csr_matrix": "scipy.sparse.csr_matrix",
+    "scipy.sparse._csc.csc_matrix": "scipy.sparse.csc_matrix",
+    "torch.nn.modules.module.Module": "torch.nn.Module",
+    "ipywidgets.widgets.widget_box.VBox": "ipywidgets.VBox",
+}
 nitpicky = True
-nitpick_ignore = [
-    ("py:class", "AnnData"),
-]
+nitpick_ignore = []
 scanpydoc_use_plots = True
 scanpydoc_default_config = {
     "api_url": "https://api.scanpy.org/api",

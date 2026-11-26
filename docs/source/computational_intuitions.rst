@@ -35,9 +35,9 @@ Things to try
 3. **Follow one number.** In Part 3, step 1, load *Toy* and click a cell of the matrix. The left panel draws exactly
    the neighbour edges behind that number. With *Easy*, the matrix shows one block per shape.
    (:ref:`ci-neighbours`)
-4. **Break PCA.** Load *Extreme*, go to step 3 and switch between *PCA* and *GLM-PCA*. With PCA, the tiny clones of
-   all shapes gather in a central blob; with GLM-PCA, most of them sit with their shape. (:ref:`ci-totals` and
-   :ref:`ci-model`)
+4. **Watch the small clones.** Load *Extreme*, where half the clones have only 2–4 cells. Compare the E-distance
+   t-SNE in Part 2 with the clone2vec t-SNE in Part 3, step 3. With E-distance, the small clones scatter between the
+   shapes; with clone2vec, most of them sit with their shape. (:ref:`ci-neighbours` and :ref:`ci-model`)
 5. **Look inside the model.** In step 2, watch the GLM-PCA fit converge, then click a clone to compare its observed
    and reconstructed neighbour profile. (:ref:`ci-model`)
 
@@ -136,7 +136,8 @@ and taking ``log1p`` before PCA.
 
 That scaling hides how much evidence each row has. After normalization, a row built from 15 neighbours counts as
 much as a row built from 1,500. A tiny clone's row is mostly zeros, and mostly-zero rows look alike regardless of
-the shape they came from, so PCA pulls the tiny clones of every shape towards the same place.
+the shape they came from, so PCA would pull the tiny clones of every shape towards the same place. clone2vec avoids
+this by not normalizing at all, as the next section explains.
 
 .. _ci-model:
 
@@ -183,13 +184,12 @@ uncertain, so they scatter more around the shape they belong to. This is the noi
 What the toy does and doesn't show
 ----------------------------------
 
-* **When clones are large, the methods agree.** With *Very easy* or *Easy*, PCA and GLM-PCA give nearly the same
-  picture. The difference shows when clone sizes are small and uneven, as in *Extreme*, which is the typical regime of
-  real lineage tracing data.
+* **When clones are large, even direct comparison works.** With *Very easy*, E-distance and clone2vec give nearly
+  the same picture. The difference grows as clones get smaller and their sizes more uneven, as in *Hard* and
+  *Extreme*, which is the typical regime of real lineage tracing data.
 * **No method recovers information that isn't there.** In *Very hard*, most clones have two or three cells, and all
   approaches lose part of the structure. Describing clones by their neighbours still keeps more of it than comparing
-  their cells directly. In this toy, PCA even does a little better than GLM-PCA here: the walkthrough's small model is
-  only lightly regularized and overfits clones of two or three cells. No model can make a two-cell clone informative.
+  their cells directly, but no model can make a two-cell clone informative.
 * **The toy is two-dimensional.** Real expression spaces are high-dimensional and the kNN graph is built in PCA or
   a batch-corrected space, but the logic of every explanation above carries over unchanged.
 

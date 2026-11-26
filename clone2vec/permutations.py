@@ -50,13 +50,12 @@ def _tw1_tail_shape(x: float) -> float:
 
     Parameters
     ----------
-    x : float
+    x
         Value at which to evaluate the tail, must be positive.
 
     Returns
     -------
-    float
-        The unnormalised tail shape at x.
+    The unnormalised tail shape at x.
     """
     return x ** -0.75 * np.exp(-2.0 / 3.0 * x ** 1.5)
 
@@ -73,13 +72,12 @@ def _tracy_widom_cdf(x: float) -> float:
 
     Parameters
     ----------
-    x : float
+    x
         Value at which to evaluate the CDF.
 
     Returns
     -------
-    float
-        The value of the CDF at x.
+    The value of the CDF at x.
     """
     if x <= _TW1_X[0]:
         return 0.0
@@ -93,13 +91,12 @@ def _calculate_statistics(X: np.ndarray) -> float:
 
     Parameters
     ----------
-    X : np.ndarray
+    X
         Matrix of shape (n, p) containing the data.
 
     Returns
     -------
-    float
-        The value of the test statistic.
+    The value of the test statistic.
     """
     n, p = X.shape
     sd = np.std(X, axis=0)
@@ -141,7 +138,7 @@ def spectral_test(
     null_distribution: np.ndarray | None = None,
     progress_bar: bool = True,
     random_state: int | None = 0,
-):
+) -> dict | None:
     """
     Tests whether a clonal embedding carries more structure than expected under the null
     using the leading eigenvalue statistic of Johnstone's spiked covariance test.
@@ -156,36 +153,35 @@ def spectral_test(
 
     Parameters
     ----------
-    clones : sc.AnnData | np.ndarray
+    clones
         Annotated data matrix at the clone level (with the results of `permute_embeddings`
         for the "permutations" flavor), or a numpy array with the embedding for the
         "synthetic" and "asymptotic" flavors.
-    flavor : Literal["permutations", "synthetic", "asymptotic"], optional
+    flavor
         Source of the null distribution, by default "permutations".
-    key : str | None, optional
+    key
         Key in `clones.obsm` with the embedding, used for AnnData input with the
         "synthetic" and "asymptotic" flavors, by default None.
-    permutations_key : str, optional
+    permutations_key
         `key_added` used in `permute_embeddings`, used with the "permutations" flavor,
         by default "clonal_permutations".
-    key_added : str, optional
+    key_added
         Key in `clones.uns` to store the results, by default "spectral_test".
-    n_simulations : int, optional
+    n_simulations
         Number of simulations for the "synthetic" flavor, by default 10000.
-    null_distribution : np.ndarray | None, optional
+    null_distribution
         Precomputed null distribution for the "synthetic" flavor, by default None.
-    progress_bar : bool, optional
+    progress_bar
         Whether to show a progress bar, by default True.
-    random_state : int | None, optional
+    random_state
         Seed used to generate the null distribution for the "synthetic" flavor,
         by default 0.
 
     Returns
     -------
-    dict | None
-        For AnnData input, `clones.uns[key_added]` stores the test statistic, the p-value,
-        the null distribution (None for the "asymptotic" flavor), and the flavor; for
-        numpy array input, they are returned as a dictionary.
+    For AnnData input, `clones.uns[key_added]` stores the test statistic, the p-value,
+    the null distribution (None for the "asymptotic" flavor), and the flavor; for
+    numpy array input, they are returned as a dictionary.
     """
     if isinstance(clones, sc.AnnData):
         if flavor == "permutations":
@@ -318,43 +314,43 @@ def permute_embeddings(
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         Annotated data matrix at the cell level, containing the representation used by
         `clonal_nn` in `.obsm`.
-    clones : sc.AnnData
+    clones
         Annotated data matrix at the clone level with the results of `clonal_nn` and
         `clone2vec` (or `clone2vec_Poi`).
-    batch_key : str | None, optional
+    batch_key
         Column in `adata.obs` to shuffle clonal labels within, if None, labels are
         shuffled across the whole dataset, by default None.
-    obs_name : str | None, optional
+    obs_name
         Column in `adata.obs` containing clonal information, if None, try to get from
         `clones.uns['obs_name']`, by default None.
-    keep_labels : list[str] | str | None, optional
+    keep_labels
         Labels to keep in place, if None, try to get the label of the cells without
         clonal information from `clones.uns['na_value']`, by default None.
-    method : Literal["poisson", "multinomial"] | None, optional
+    method
         Whether to embed clones with `clone2vec_Poi` ("poisson") or `clone2vec`
         ("multinomial"). If None, the model of the existing embedding is used ("multinomial"
         with a warning if both exist), by default None.
-    n_permutations : int, optional
+    n_permutations
         Number of clonal permutations, by default 100.
-    random_state : None | int, optional
+    random_state
         Random state for reproducibility, also passed to the embedding functions, by default 4.
-    progress_bar : bool, optional
+    progress_bar
         Whether to show a progress bar, by default True.
-    key_added : str, optional
+    key_added
         Key in `clones.obsm` and `clones.uns` to store the results, by default
         "clonal_permutations".
-    clonal_nn_kwargs : dict | None, optional
+    clonal_nn_kwargs
         Keyword arguments for `clonal_nn` overriding the ones stored in
         `clones.uns['clonal_nn']` (including the masks, which stay bound to the cells),
         by default None.
-    clone2vec_kwargs : dict | None, optional
+    clone2vec_kwargs
         Keyword arguments for `clone2vec` or `clone2vec_Poi` overriding the ones stored in
         `clones.uns['clone2vec']['init']` or `clones.uns['clone2vec_Poi']['init']`,
         by default None.
-    mask : str | None, optional
+    mask
         `key_added` of `tl.mask_heterogeneity`. If provided, the parameters are taken from
         `clones.uns[mask]` (`clonal_nn` with the masks, and `clone2vec` or `clone2vec_Poi`
         refitted with `mask_key="masked_nn"` and `init="random"`), and
@@ -362,12 +358,11 @@ def permute_embeddings(
 
     Returns
     -------
-    None
-        `clones.obsm[key_added]` stores the permuted embeddings (clones × dimensions ×
-        permutations), and `clones.uns[key_added]` stores the key of the observed embedding
-        (`use_rep`), the permuted labels as integer codes (`codes`, cells × permutations,
-        -1 for missing labels) together with the cell names (`cells`), the label
-        categories, and the parameters. `adata` is not modified.
+    `clones.obsm[key_added]` stores the permuted embeddings (clones × dimensions ×
+    permutations), and `clones.uns[key_added]` stores the key of the observed embedding
+    (`use_rep`), the permuted labels as integer codes (`codes`, cells × permutations,
+    -1 for missing labels) together with the cell names (`cells`), the label
+    categories, and the parameters. `adata` is not modified.
     """
     # Imported here, `tools` imports this module itself
     from .tools import clonal_nn

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections.abc import Callable
 from contextlib import contextmanager
 from typing import Literal
 
@@ -38,21 +39,20 @@ def regress_categories(
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         AnnData object with expression data.
-    obs_key : str | list[str]
+    obs_key
         Categorical variables in obs to regress.
-    layer : str | None, optional
+    layer
         Layer in adata.layers to regress. If None, use adata.X. Default is None.
-    key_added : str, optional
+    key_added
         Suffix of the layer with regressed expression: it is stored in
         `adata.layers[f"{layer}_{key_added}"]` ("X_regressed" when `layer` is None).
         Default is "regressed".
 
     Returns
     -------
-    None
-        Adds the dense regressed expression matrix to `adata.layers`.
+    Adds the dense regressed expression matrix to `adata.layers`.
     """
     if layer is None:
         layer = "X"
@@ -102,15 +102,14 @@ def get_connectivity_matrix(
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         AnnData object with group connectivity matrix in adata.uns[uns_key].
-    uns_key : str, optional
+    uns_key
         Key in adata.uns to group connectivity matrix. Default is "group_connectivity".
 
     Returns
     -------
-    pd.DataFrame
-        Group connectivity matrix.
+    Group connectivity matrix.
     """
     return pd.DataFrame(
         adata.uns[uns_key]["connectivity"],
@@ -134,22 +133,21 @@ def permute_clones(
 
     Parameters
     ----------
-    clonal_labels : pd.Series
+    clonal_labels
         Clonal labels of the cells, typically `adata.obs[obs_name]`.
-    batch : pd.Series | None, optional
+    batch
         Batch of the cells, aligned with `clonal_labels` by index. If None, labels are
         shuffled across the whole dataset. Default is None.
-    keep_labels : list[str] | str | None, optional
+    keep_labels
         Labels to keep in place, for example "NA" for the cells without clonal
         information. Default is None.
-    random_state : None | int | np.random.Generator, optional
+    random_state
         Random state for reproducibility. Pass a `numpy.random.Generator` to draw
         several independent permutations in a row. Default is 4.
 
     Returns
     -------
-    pd.Series
-        Permuted clonal labels with the index, name, and dtype of `clonal_labels`.
+    Permuted clonal labels with the index, name, and dtype of `clonal_labels`.
     """
     if not isinstance(clonal_labels, pd.Series):
         clonal_labels = pd.Series(clonal_labels)
@@ -203,17 +201,16 @@ def unpack_permutations(
 
     Parameters
     ----------
-    clones : sc.AnnData
+    clones
         Annotated data matrix at the clone level with the results of `c2v.tl.permute_embeddings`.
-    permutations_key : str, optional
+    permutations_key
         `key_added` used in `c2v.tl.permute_embeddings`, by default "clonal_permutations".
 
     Returns
     -------
-    list[sc.AnnData]
-        One AnnData per permutation with the clones of `clones` as observations, the
-        permuted embedding in `.obsm[use_rep]` (under the key of the observed embedding,
-        e.g. "clone2vec"), and `.uns['obs_name']` and `.uns['permutation']` (permutation index).
+    One AnnData per permutation with the clones of `clones` as observations, the
+    permuted embedding in `.obsm[use_rep]` (under the key of the observed embedding,
+    e.g. "clone2vec"), and `.uns['obs_name']` and `.uns['permutation']` (permutation index).
     """
     if permutations_key not in clones.uns or permutations_key not in clones.obsm:
         raise KeyError(
@@ -259,18 +256,18 @@ def stack_layers(
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         AnnData object with layers to stack.
-    layers : list[str] | None, optional
+    layers
         Layers to stack. If None, all layers are stacked. Default is None.
-    layer_col_added : str, optional
+    layer_col_added
         Name of the column added to obs to indicate the layer. Default is "layer".
-    presence_key : str | None | Literal[False], optional
+    presence_key
         Key in obsm to the table with numbers of cells per layer (as created by
         `pp.transfer_expression`); only rows with non-zero counts are included in the stack
         and the counts are written to `.obs['n_cells_expr']`. If None, tries to use
         "presence_key" in adata.uns. Default is None.
-    connect_layers : bool, optional
+    connect_layers
         Whether to connect the nodes generated from the same cell by different layers in
         the stacked `.obsp` graphs with an edge of weight 1 (if False, they are not
         connected, weight 0). Edges between different cells across layers are never
@@ -278,10 +275,9 @@ def stack_layers(
 
     Returns
     -------
-    sc.AnnData
-        New AnnData with one observation per (layer, original observation) pair. The layer
-        is stored in `.obs[layer_col_added]` and the original observation name in
-        `.obs[adata.uns["obs_name"]]` (or `.obs["clone"]`); `.obsm` and `.obsp` are stacked to match the new index.
+    New AnnData with one observation per (layer, original observation) pair. The layer
+    is stored in `.obs[layer_col_added]` and the original observation name in
+    `.obs[adata.uns["obs_name"]]` (or `.obs["clone"]`); `.obsm` and `.obsp` are stacked to match the new index.
     """
     if presence_key is None and "presence_key" in adata.uns.keys():
         presence_key = adata.uns["presence_key"]
@@ -393,34 +389,33 @@ def connect_clones(
     groupby: str,
     graph_key_added: str = "connected",
     orient_col: str | None = None,
-    orient_rule: Literal["all_increase", "all_decrease", "increase", "decrease"] | "Callable" | None = None,
+    orient_rule: Literal["all_increase", "all_decrease", "increase", "decrease"] | Callable | None = None,
     ignore_names: list[str] | str | None = None,
     weight_edges: bool = False,
-):
+) -> None:
     """
     Creates a graph of connected clones based on a grouping variable.
 
     Parameters
     ----------
-    clones : sc.AnnData
+    clones
         AnnData object with clone information.
-    groupby : str
+    groupby
         Name of the column in obs to group by.
-    graph_key_added : str, optional
+    graph_key_added
         Name of the key added to obsp to store the graph. Default is "connected".
-    orient_col : str | None, optional
+    orient_col
         Name of the column in obs to orient the graph. If None, all pairs of clones are connected. Default is None.
-    orient_rule : Literal["all_increase", "all_decrease", "increase", "decrease"] | "Callable" | None, optional
+    orient_rule
         Rule to orient the graph. If None, uses "increase" if `orient_col` is provided. Default is None.
-    ignore_names : list[str] | str | None, optional
+    ignore_names
         Names of clones to ignore. If None, no clones are ignored. Default is None.
-    weight_edges : bool, optional
+    weight_edges
         Whether to weight edges by the inverse of the number of connected clones. Default is False.
 
     Returns
     -------
-    None
-        Adds a graph to clones.obsp[graph_key_added].
+    Adds a graph to clones.obsp[graph_key_added].
     """
     line_before = f"\n    using .obs['{groupby}'] to group clones"
     start = logg.info(f"connecting clones", deep=line_before)
@@ -498,25 +493,24 @@ def correct_shap(
 
     Parameters
     ----------
-    shapdata : sc.AnnData
+    shapdata
         AnnData object with SHAP values in varm[shap_key].
-    shap_key : str, optional
+    shap_key
         Key in varm with mean absolute SHAP values. Default is "mean_shap".
-    corr_key : str, optional
+    corr_key
         Key in varm with correlations between SHAP values and expression. Default is "gex_r".
-    correct_sign : bool, optional
+    correct_sign
         Whether to correct the sign of SHAP values based on the correlation sign. Default is True.
-    normalize : bool, optional
+    normalize
         Whether to normalize SHAP values by dividing by the maximum value for each prediction column.
         Default is False.
-    key_added : str | None, optional
+    key_added
         Key in varm to store corrected SHAP values. If None, `shap_key` prefixed with "norm_"
         (if `normalize`) and "signed_" (if `correct_sign`), e.g. "signed_mean_shap". Default is None.
 
     Returns
     -------
-    None
-        Corrected SHAP values are stored in varm[key_added].
+    Corrected SHAP values are stored in varm[key_added].
     """
     line_before = f"    using varm['{shap_key}'] and varm['{corr_key}']"
     start = logg.info("correcting SHAP values", deep="\n" + line_before)
@@ -548,35 +542,34 @@ def impute(
     key_added: str = "imputed",
     gaus_sigma: float | None = None,
     k: int = 10,
-):
+) -> None:
     """
     Impute missing values in an observation column using k-nearest neighbors.
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         AnnData object with observation values in obs[obs_name].
-    obs_name : str
+    obs_name
         Name of the observation column to impute.
-    value_to_impute : str, optional
+    value_to_impute
         Value in obs_name to impute. Default is "NA".
-    use_rep : str, optional
+    use_rep
         Key in obsm to use for neighbor search. Default is "X_pca".
-    weights : Literal["gaussian", "linear"] | None, optional
+    weights
         Weighting scheme for imputation. Default is None.
-    classification_obsm : str, optional
+    classification_obsm
         Key in obsm to use for classification probabilities. Default is "impute_prob".
-    key_added : str, optional
+    key_added
         Key in obs to store imputed values. Default is "imputed".
-    gaus_sigma : float | None, optional
+    gaus_sigma
         Sigma for Gaussian weighting. If None, use median distance of positive neighbors. Default is None.
-    k : int, optional
+    k
         Number of neighbors to use for imputation. Default is 10.
 
     Returns
     -------
-    None
-        Imputed values are stored in obs[f"{obs_name}_{key_added}"].
+    Imputed values are stored in obs[f"{obs_name}_{key_added}"].
     """
     import pynndescent
 
@@ -685,19 +678,18 @@ def _silenced():
         sc.settings.verbosity = verbosity
 
 
-def _nan_mask(X: np.ndarray | sp.sparse.csr_matrix) -> np.ndarray:
+def _nan_mask(X: np.ndarray | sp.csr_matrix) -> np.ndarray:
     """
     Create a mask for NaN-contaminated rows in a sparse or dense matrix.
 
     Parameters
     ----------
-    X : np.ndarray or sp.sparse.csr_matrix
+    X
         Input matrix.
 
     Returns
     -------
-    np.ndarray
-        Boolean mask where True indicates NaN-contaminated rows.
+    Boolean mask where True indicates NaN-contaminated rows.
     """
 
     if sp.issparse(X):
@@ -737,26 +729,25 @@ def gs(
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         Annotated data matrix at the cell level.
-    use_rep : str, optional
+    use_rep
         Representation to use for geometric sketching, by default "X_pca".
-    batch_key : str | None, optional
+    batch_key
         Key in `adata.obs` to use for batch-specific sketching, by default None.
-    n : float | int, optional
+    n
         Either a fraction between 0 and 1 or an integer between 1 and the number of cells to sketch, by default 0.2.
-    obs_key : str, optional
+    obs_key
         Name of the new column in `adata.obs` to store sketching labels, by default "gs".
-    random_state : int, optional
+    random_state
         Random seed for reproducibility, by default 42.
-    progress_bar : bool, optional
+    progress_bar
         Whether to display a progress bar, by default False.
 
     Returns
     -------
-    None
-        The `adata` object is modified in place with the new sketching labels stored in `.obs[obs_key]`.
-        The parameters used for the sketching are stored in `adata.uns["gs"]`.
+    The `adata` object is modified in place with the new sketching labels stored in `.obs[obs_key]`.
+    The parameters used for the sketching are stored in `adata.uns["gs"]`.
     """
     start = logg.info("performing geometric sketching")
     from geosketch import gs
@@ -849,30 +840,29 @@ def laplacian_eigenmaps(
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         Annotated data matrix.  Must contain a sparse adjacency matrix in
         ``adata.obsp[obsp_key]``.
-    obsp_key : str, optional
+    obsp_key
         Key in ``adata.obsp`` for the adjacency / connectivity matrix.
         Default is ``"connectivities"``.
-    n_components : int, optional
+    n_components
         Number of eigenvectors to compute (excluding the trivial constant
         eigenvector).  Default is 20.
-    key_added : str, optional
+    key_added
         Key in ``adata.obsm`` where the embedding is stored.
         Default is ``"X_laplacian"``.
-    norm_laplacian : bool, optional
+    norm_laplacian
         If ``True``, use the symmetric normalised Laplacian
         :math:`I - D^{-1/2} W D^{-1/2}`.  Otherwise use the combinatorial
         Laplacian :math:`D - W`.  Default is ``True``.
-    uns_key : str, optional
+    uns_key
         Name of the new column in ``adata.uns`` to store the Laplacian eigenmaps parameters,
         by default "laplacian_eigenmaps".
 
     Returns
     -------
-    None
-        The embedding is stored in place in ``adata.obsm[key_added]``.
+    The embedding is stored in place in ``adata.obsm[key_added]``.
     """
     from scipy.sparse.linalg import eigsh
 

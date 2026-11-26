@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Literal
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 import scanpy as sc
 import numpy as np
@@ -59,11 +59,11 @@ def embedding(
 
     Parameters
     ----------
-    adata: sc.AnnData
+    adata
         Annotated data matrix.
-    obsm_name: str | None
+    obsm_name
         Key for embedding in `adata.obsm`.
-    obsm_component: int | str | list[int] | list[str] | None
+    obsm_component
         Component(s) to plot. Can be:
 
         - ``int``: column index (works for both arrays and DataFrames).
@@ -72,15 +72,14 @@ def embedding(
         - ``list[int]`` or ``list[str]``: multiple components; each is
           plotted as a separate colour channel via *sc.pl.embedding*.
         - ``None`` (default): uses component ``0``.
-    basis: str
+    basis
         Key for embedding coordinates in `adata.obsm`.
     **kwargs
         Additional arguments to pass to `sc.pl.embedding`.
 
     Returns
     -------
-    res: matplotlib.axes.Axes | matplotlib.figure.Figure | None
-        Axes object with the plot.
+    Axes object with the plot.
     """
     tmp_keys: list[str] = []  # obs keys to clean up afterwards
     if obsm_name:
@@ -137,35 +136,34 @@ def pca_loadings(
 
     Parameters
     ----------
-    adata: sc.AnnData
+    adata
         Annotated data matrix.
-    key: str
+    key
         Key for PCA loadings (genes × components) in `adata.varm`, e.g. "sPCs" from `c2v.tl.spca`
         or "PCs" from `sc.pp.pca`. Default is "sPCs".
-    comp: int
+    comp
         Zero-based index of the component to plot. Default is 0.
-    n_genes: int
+    n_genes
         Number of genes with the most negative and the most positive loadings to plot. Default is 5.
-    kind: Literal["h", "v"]
+    kind
         Kind of plot, either "h" for horizontal or "v" for vertical.
-    ax: matplotlib.axes.Axes | None
+    ax
         Axes object to plot on.
-    show: bool
+    show
         Whether to show the plot.
-    return_fig: bool
+    return_fig
         Whether to return the figure object.
-    title: str | None
+    title
         Title for the plot.
-    full_border: bool
+    full_border
         Whether to draw full border around the plot.
-    figsize: tuple[float, float] | None
+    figsize
         Figure size.
 
     Returns
     -------
-    matplotlib.axes.Axes | matplotlib.figure.Figure | None
-        Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
-        otherwise None.
+    Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
+    otherwise None.
     """
     loadings = pd.Series(adata.varm[key][:, comp], index=adata.var_names).sort_values()
     loadings = pd.concat([loadings[:n_genes], loadings[-n_genes:]])
@@ -236,37 +234,36 @@ def group_connectivity(
 
     Parameters
     ----------
-    adata: sc.AnnData
+    adata
         Annotated data matrix.
-    basis: str
+    basis
         Key for embedding coordinates in `adata.obsm`.
-    color_bg: bool
+    color_bg
         Whether to color the background points.
-    alpha_bg: float
+    alpha_bg
         Alpha value for the background points.
-    s_bg: float | None
+    s_bg
         Size of the background points.
-    clip: tuple[float, float]
+    clip
         Clip values for the connectivity matrix.
-    ax: matplotlib.axes.Axes | None
+    ax
         Axes object to plot on.
-    return_fig: bool
+    return_fig
         Whether to return the figure object.
-    uns_key: str
+    uns_key
         Key for group connectivity in `adata.uns`.
-    title: str | None
+    title
         Title for the plot.
-    show: bool
+    show
         Whether to show the plot.
-    linewidth: float
+    linewidth
         Linewidth for the connections.
-    figsize: tuple[float, float] | None
+    figsize
         Figure size.
 
     Returns
     -------
-    ax: matplotlib.axes.Axes | matplotlib.figure.Figure | None
-        Axes object with the plot.
+    Axes object with the plot.
     """
     from .utils import get_connectivity_matrix
 
@@ -383,8 +380,8 @@ def graph(
     linealpha: float = 1.,
     arrowstyle: str | None = None,
     mutation_scale: float = 10.,
-    width_condition: "Callable" | None = None,
-    color_condition: "Callable" | None = None,
+    width_condition: Callable | None = None,
+    color_condition: Callable | None = None,
     figsize: tuple[float, float] | None = None,
     **kwargs,
 ) -> matplotlib.axes.Axes | matplotlib.figure.Figure | None:
@@ -393,46 +390,45 @@ def graph(
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         AnnData object with graph in obsp[graph_key].
-    graph_key : str, optional
+    graph_key
         Key in obsp with the graph to draw. Default is "connectivities".
-    basis : str, optional
+    basis
         Key in obsm with the embedding coordinates. Default is "X_umap".
-    oriented : bool, optional
+    oriented
         Whether to draw oriented edges. Default is False.
-    ax : matplotlib.axes.Axes, optional
+    ax
         Axes to draw on. Default is None.
-    return_fig : bool, optional
+    return_fig
         Whether to return figure. Default is False.
-    show : bool, optional
+    show
         Whether to show the plot. Default is False.
-    linewidth : float, optional
+    linewidth
         Line width. Default is 1.
-    linecolor : str, optional
+    linecolor
         Line color. Default is "black".
-    linealpha : float, optional
+    linealpha
         Line alpha. Default is 1.
-    arrowstyle : str, optional
+    arrowstyle
         Arrow style. Default is None.
-    mutation_scale : float, optional
+    mutation_scale
         Size of the arrow heads (matplotlib `FancyArrowPatch` mutation scale). Default is 10.
-    width_condition : Callable, optional
+    width_condition
         Function `f(adata[start], adata[end])` returning the line width of an edge between
         two observations. If None, `linewidth` is used. Default is None.
-    color_condition : Callable, optional
+    color_condition
         Function `f(adata[start], adata[end])` returning the line color of an edge between
         two observations. If None, `linecolor` is used. Default is None.
-    figsize : tuple[float, float], optional
+    figsize
         Figure size. Default is None.
-    **kwargs : dict, optional
+    **kwargs
         Additional keyword arguments for sc.pl.embedding.
 
     Returns
     -------
-    matplotlib.axes.Axes | matplotlib.figure.Figure | None
-        Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
-        otherwise None.
+    Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
+    otherwise None.
     """
 
     if figsize is None:
@@ -539,44 +535,43 @@ def group_scatter(
 
     Parameters
     ----------
-    adata : AnnData
+    adata
         AnnData object with cell metadata and embeddings.
-    groupby : str
+    groupby
         Column in `adata.obs` indicating clonal identity.
-    groups : list[str] | str | None
+    groups
         Clones to be highlighted. If None, all groups are shown.
-    frameon : list[bool] | bool, optional
+    frameon
         Whether to show axes frame in the plot. Default is False.
-    square : bool, optional
+    square
         Whether to set the aspect ratio of the plot to be equal. Default is True.
-    s : list[float] | float, optional
+    s
         Dot size for the highlighted clone. Default is 30.
-    ncols : int, optional
+    ncols
         Maximum number of panels per row when several groups are plotted. Default is 4.
-    kwargs_background : list[dict] | dict | None, optional
+    kwargs_background
         Additional plotting arguments for the background cells.
-    kwargs_group : list[dict] | dict | None, optional
+    kwargs_group
         Additional plotting arguments for the highlighted clone.
-    group_color : list[str] | str, optional
+    group_color
         Color to use for the highlighted clone. Default is "black".
-    ax : matplotlib.axes.Axes | list[matplotlib.axes.Axes] | None, optional
+    ax
         Axes object to draw the plot on. If None, a new figure is created.
-    title : list[str] | str, optional
+    title
         Plot title. If None, uses the clone name.
-    return_fig : bool, optional
+    return_fig
         If True, returns the Matplotlib Figure object. Default is False.
-    basis : list[str] | str, optional
+    basis
         Embedding key in `adata.obsm` to use for coordinates. Default is "X_umap".
-    show : bool, optional
+    show
         Whether to show the plot. Default is True.
-    figsize : tuple[float, float], optional
+    figsize
         Figure size. Default is None.
 
     Returns
     -------
-    None | matplotlib.figure.Figure | matplotlib.axes.Axes | np.ndarray | list[matplotlib.axes.Axes]
-        Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
-        otherwise None.
+    Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
+    otherwise None.
     """
     if groups is None:
         try:
@@ -749,41 +744,40 @@ def group_kde(
 
     Parameters
     ----------
-    adata : AnnData
+    adata
         AnnData object containing embeddings and group annotations.
-    groupby : str
+    groupby
         Column in `adata.obs` used to identify cell groups.
-    groups : list[str] | str | None
+    groups
         Specific group(s) to visualize.
-    basis : str, optional
+    basis
         Embedding key from `adata.obsm` to use. Default is "X_umap".
-    bw_method : list[float | str] | float | str, optional
+    bw_method
         Bandwidth for the KDE. Passed to `scipy.stats.gaussian_kde`. Can be a single value or a list per group. Default is 0.15.
-    ncols : int, optional
+    ncols
         Number of columns in the subplot grid when plotting multiple groups. Default is 4.
-    square : bool, optional
+    square
         Whether to set the aspect ratio of the plot to be equal. Default is True.
-    frameon : list[bool] | bool, optional
+    frameon
         Whether to show axes frame for each subplot. Can be a single bool or a list per group. Default is False.
-    ax : matplotlib.axes.Axes | list[matplotlib.axes.Axes] | None, optional
+    ax
         Axes object(s) to draw the plot on. If None, a new figure/grid is created.
-    return_fig : bool, optional
+    return_fig
         If True, returns the Matplotlib Figure object. Default is False.
-    cmap : list[ColorMap | str] | ColorMap | str, optional
+    cmap
         Colormap(s) to use for KDE overlay. Can be a single value or a list per group. Default is "Reds".
-    title : list[str] | str | None, optional
+    title
         Plot title(s). If None, uses "{group} KDE".
-    kwargs : list[dict] | dict | None, optional
+    kwargs
         Additional arguments passed to `sc.pl.embedding` for the background. Can be a single dict or a list per group.
-    show : bool, optional
+    show
         Whether to show the plot. Default is True.
-    figsize : tuple[float, float] | None, optional
+    figsize
         Figure size. Default is None.
 
     Returns
     -------
-    None | matplotlib.figure.Figure | matplotlib.axes.Axes | np.ndarray | list[matplotlib.axes.Axes]
-        Returns Figure if `return_fig` is True; otherwise returns None or axes.
+    Returns Figure if `return_fig` is True; otherwise returns None or axes.
     """
     from scipy.stats import gaussian_kde
     from matplotlib.colors import ListedColormap
@@ -983,28 +977,27 @@ def loss_history(
 
     Parameters
     ----------
-    clones : AnnData
+    clones
         Annotated data matrix containing training statistics in `clones.uns`.
-    uns_key : str, optional
+    uns_key
         Key in `clones.uns` with clone2vec training details (`c2v.tl.clone2vec`).
         Default is "clone2vec".
-    loss_key : str, optional
+    loss_key
         Key in `clones.uns[uns_key]` that stores a list of mean losses per epoch.
         Default is "loss_history".
-    return_fig : bool, optional
+    return_fig
         If True, returns the Matplotlib Figure object. Default is False.
-    show : bool, optional
+    show
         If True, shows the plot. Default is True.
-    figsize : tuple[float, float] | None, optional
+    figsize
         Figure size. Default is None.
-    ax : list[matplotlib.axes.Axes] | None, optional
+    ax
         List of axes to plot on. Default is None.
 
     Returns
     -------
-    None or matplotlib.figure.Figure or list[matplotlib.axes.Axes]
-        Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
-        otherwise None.
+    Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
+    otherwise None.
 
     Raises
     -------
@@ -1105,51 +1098,50 @@ def spectral_test(
 
     Parameters
     ----------
-    clones : AnnData
+    clones
         Annotated data matrix at the clone level containing the results of
         `c2v.tl.spectral_test` in `clones.uns`.
-    uns_key : str, optional
+    uns_key
         Key in `clones.uns` that stores the results of the test.
         Default is "spectral_test".
-    bins : int, optional
+    bins
         Number of bins of the null distribution histogram. Default is 10.
-    alpha : float, optional
+    alpha
         Opacity of the histogram bars. Default is 1.
-    edgecolor : str, optional
+    edgecolor
         Color of the histogram bars edges. Default is "black".
-    label : str, optional
+    label
         Legend label of the null distribution, if None, chosen by the flavor of the test.
         Default is None.
-    observed_label : str, optional
+    observed_label
         Legend label of the observed statistic. Default is "Observed statistics".
-    legend : bool, optional
+    legend
         Whether to draw the legend. Default is False.
-    title : str | None, optional
+    title
         Title of the plot. Default is None.
-    xlabel : str, optional
+    xlabel
         x-axis label. Default is "Johnstone's statistics".
-    ylabel : str, optional
+    ylabel
         y-axis label, if None, chosen by the flavor of the test. Default is None.
-    grid : bool, optional
+    grid
         Whether to draw grid lines. Default is True.
-    show : bool, optional
+    show
         Whether to show the plot. Default is True.
-    figsize : tuple[float, float] | None, optional
+    figsize
         Figure size. Default is None.
-    ax : matplotlib.axes.Axes | None, optional
+    ax
         Axes to plot on. Default is None.
-    return_fig : bool, optional
+    return_fig
         If True, returns the Matplotlib Figure object. Default is False.
-    hist_kws : dict | None, optional
+    hist_kws
         Keyword arguments for `seaborn.histplot` (or `ax.plot` of the Tracy-Widom
         density). Default is None.
-    line_kws : dict | None, optional
+    line_kws
         Keyword arguments for the line of the observed statistic. Default is None.
 
     Returns
     -------
-    None or matplotlib.figure.Figure or matplotlib.axes.Axes
-        The plot figure if `return_fig` is True, or axes if `show` is False, otherwise None.
+    The plot figure if `return_fig` is True, or axes if `show` is False, otherwise None.
 
     Raises
     -------
@@ -1334,52 +1326,51 @@ def moran_test(
 
     Parameters
     ----------
-    clones : AnnData
+    clones
         Annotated data matrix at the clone level containing the results of
         `c2v.tl.graph_associations` and `c2v.tl.permuted_graph_associations`.
-    gene : str
+    gene
         Gene to plot, has to be present in `clones.var_names`.
-    uns_key : str, optional
+    uns_key
         Key in `clones.uns` that stores the results of `c2v.tl.permuted_graph_associations`.
         Default is "permuted_graph_associations".
-    bins : int, optional
+    bins
         Number of bins of the null distribution histogram. Default is 10.
-    alpha : float, optional
+    alpha
         Opacity of the histogram bars. Default is 1.
-    edgecolor : str, optional
+    edgecolor
         Color of the histogram bars edges. Default is "black".
-    label : str, optional
+    label
         Legend label of the null distribution. Default is "Clonal labels permutations".
-    observed_label : str, optional
+    observed_label
         Legend label of the observed statistic. Default is "Observed Moran's I".
-    legend : bool, optional
+    legend
         Whether to draw the legend. Default is False.
-    title : str | None, optional
+    title
         Title of the plot, if None, the gene name and the permutation p-value.
         Default is None.
-    xlabel : str, optional
+    xlabel
         x-axis label. Default is "Moran's I".
-    ylabel : str, optional
+    ylabel
         y-axis label. Default is "Number of permutations".
-    grid : bool, optional
+    grid
         Whether to draw grid lines. Default is True.
-    show : bool, optional
+    show
         Whether to show the plot. Default is True.
-    figsize : tuple[float, float] | None, optional
+    figsize
         Figure size. Default is None.
-    ax : matplotlib.axes.Axes | None, optional
+    ax
         Axes to plot on. Default is None.
-    return_fig : bool, optional
+    return_fig
         If True, returns the Matplotlib Figure object. Default is False.
-    hist_kws : dict | None, optional
+    hist_kws
         Keyword arguments for `seaborn.histplot`. Default is None.
-    line_kws : dict | None, optional
+    line_kws
         Keyword arguments for the line of the observed statistic. Default is None.
 
     Returns
     -------
-    None or matplotlib.figure.Figure or matplotlib.axes.Axes
-        The plot figure if `return_fig` is True, or axes if `show` is False, otherwise None.
+    The plot figure if `return_fig` is True, or axes if `show` is False, otherwise None.
 
     Raises
     -------
@@ -1436,56 +1427,55 @@ def spca_test(
 
     Parameters
     ----------
-    clones : AnnData
+    clones
         Annotated data matrix at the clone level containing the results of
         `c2v.tl.graph_associations` and `c2v.tl.permuted_graph_associations`.
-    component : int, optional
+    component
         Number of the sPC to plot (1-based). Default is 1.
-    against : Literal["same", "first"], optional
+    against
         Null distribution to compare with: "same" – the eigenvalue of the same rank under
         permutations, "first" – the leading eigenvalue under permutations (variance explained
         by sPC_1 without clonal structure). Default is "same".
-    uns_key : str, optional
+    uns_key
         Key in `clones.uns` that stores the results of `c2v.tl.permuted_graph_associations`.
         Default is "permuted_graph_associations".
-    bins : int, optional
+    bins
         Number of bins of the null distribution histogram. Default is 10.
-    alpha : float, optional
+    alpha
         Opacity of the histogram bars. Default is 1.
-    edgecolor : str, optional
+    edgecolor
         Color of the histogram bars edges. Default is "black".
-    label : str, optional
+    label
         Legend label of the null distribution. Default is "Clonal labels permutations".
-    observed_label : str, optional
+    observed_label
         Legend label of the observed statistic. Default is "Observed eigenvalue".
-    legend : bool, optional
+    legend
         Whether to draw the legend. Default is False.
-    title : str | None, optional
+    title
         Title of the plot, if None, the sPC name and the permutation p-value.
         Default is None.
-    xlabel : str, optional
+    xlabel
         x-axis label. Default is "Scaled sPCA eigenvalue".
-    ylabel : str, optional
+    ylabel
         y-axis label. Default is "Number of permutations".
-    grid : bool, optional
+    grid
         Whether to draw grid lines. Default is True.
-    show : bool, optional
+    show
         Whether to show the plot. Default is True.
-    figsize : tuple[float, float] | None, optional
+    figsize
         Figure size. Default is None.
-    ax : matplotlib.axes.Axes | None, optional
+    ax
         Axes to plot on. Default is None.
-    return_fig : bool, optional
+    return_fig
         If True, returns the Matplotlib Figure object. Default is False.
-    hist_kws : dict | None, optional
+    hist_kws
         Keyword arguments for `seaborn.histplot`. Default is None.
-    line_kws : dict | None, optional
+    line_kws
         Keyword arguments for the line of the observed statistic. Default is None.
 
     Returns
     -------
-    None or matplotlib.figure.Figure or matplotlib.axes.Axes
-        The plot figure if `return_fig` is True, or axes if `show` is False, otherwise None.
+    The plot figure if `return_fig` is True, or axes if `show` is False, otherwise None.
 
     Raises
     -------
@@ -1539,33 +1529,32 @@ def clone_size(
 
     Parameters
     ----------
-    clones : AnnData
+    clones
         Annotated data matrix containing clone size stat in clones.obs["n_cells"]
-    return_fig : bool, optional
+    return_fig
         If True, returns the Matplotlib Figure object. Default is False.
-    title : str, optional
+    title
         Title of the plot. Default is "Clone size distribution".
-    bins : int, optional
+    bins
         Number of bins of the clone size histogram. Default is 30.
-    log : bool, optional
+    log
         Whether to use log scale for the histogram counts and for the clone size axis of
         the cumulative plot. Default is True.
-    alpha : float, optional
+    alpha
         Opacity of the histogram bars. Default is 1.
-    edgecolor : str, optional
+    edgecolor
         Edge color of the histogram bars. Default is "black".
-    show : bool, optional
+    show
         Whether to show the plot. Default is True.
-    figsize : tuple[float, float] | None, optional
+    figsize
         Figure size. Default is None.
-    ax : list[matplotlib.axes.Axes] | None, optional
+    ax
         Two axes to plot the histogram and the cumulative distribution on. Default is None.
 
     Returns
     -------
-    None or matplotlib.figure.Figure or list[matplotlib.axes.Axes]
-        Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
-        otherwise None.
+    Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
+    otherwise None.
 
     Notes
     -----
@@ -1645,31 +1634,30 @@ def nesting_clones(
 
     Parameters
     ----------
-    adata : AnnData
+    adata
         Annotated data matrix with clonal labels in `.obs`.
-    early_injection : str
+    early_injection
         Column name in `.obs` containing clone IDs from the early injection.
-    late_injection : str
+    late_injection
         Column name in `.obs` containing clone IDs from the late injection.
-    min_clone_size : int, optional
+    min_clone_size
         Minimum number of cells required for a clone to be included in the plot.
         Default is 5.
-    non_clonal_str : str, optional
+    non_clonal_str
         Value representing unlabelled or non-clonal cells. Default is "NA".
-    show : bool, optional
+    show
         Whether to show the plot. Default is True.
-    figsize : tuple[float, float] | None, optional
+    figsize
         Figure size. Default is None.
-    ax : matplotlib.axes.Axes | None, optional
+    ax
         Ternary axes (`projection="ternary"` from `mpltern`) to draw on. Default is None.
-    return_fig : bool, optional
+    return_fig
         Whether to return the figure. Default is False.
 
     Returns
     -------
-    None or matplotlib.figure.Figure or matplotlib.axes.Axes
-        Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
-        otherwise None.
+    Figure if `return_fig` is True; the created axes if `show` is False and `ax` is None;
+    otherwise None.
     """
     try:
         import mpltern
@@ -1781,105 +1769,104 @@ def volcano(
 
     Parameters
     ----------
-    de_df : pd.DataFrame | None, optional
+    de_df
         DataFrame with DE results (`tl.masked_markers`, `sc.get.rank_genes_groups_df` or a
         table built from `tl.associations` results). Gene names are taken from the "names"
         column if present, otherwise from the index; effect sizes from the first found of
         "logfoldchanges", "log2fc", "logfc", "slope", "r"; p-values from "pvals_adj", "p_adj",
         "padj", "FDR" if `adj_p`, otherwise from "pvals", "pvalue", "pval". Either `de_df` or
         both `pvals` and `logfcs` must be provided. Default is None.
-    pvals : pd.Series | list | None, optional
+    pvals
         P-values for each gene. Default is None.
-    logfcs : pd.Series | list | None, optional
+    logfcs
         Log2 fold changes for each gene. Default is None.
-    names : pd.Series | list | None, optional
+    names
         Gene names corresponding to p-values and logFCs. If None, indices are used (if provided).
         If not provided, no gene names are shown. Default is None.
-    adj_p : bool, optional
+    adj_p
         Whether p-values are adjusted (used to label the Y-axis and to pick the p-value
         column of a DataFrame). Default is True.
-    lg_p : bool, optional
+    lg_p
         Whether to use -log10(p) scale. If False, the function expects -log10(p) in pvals.
         Default is True.
-    ax : matplotlib.axes.Axes | None, optional
+    ax
         Axes to draw the volcano on. Default is None.
-    return_fig : bool, optional
+    return_fig
         Whether to return the figure. Default is False.
-    draw_p_threshold : bool, optional
+    draw_p_threshold
         Whether to draw the p-value threshold line. Default is True.
-    pval_threshold : float | None, optional
+    pval_threshold
         P-value threshold for significance. Default is 0.05.
-    draw_logfc_threshold : bool, optional
+    draw_logfc_threshold
         Whether to draw the logFC threshold lines. Default is True.
-    logfc_threshold : float | None, optional
+    logfc_threshold
         Log2 fold change threshold for significance. Default is 1.0.
-    n_highlight : int, optional
+    n_highlight
         Number of top genes to highlight from each side. Default is 5.
-    highlight_names : list | None, optional
+    highlight_names
         List of gene names to highlight in addition to top-DE genes. Default is None.
-    background_scatter_kws : dict | None, optional
+    background_scatter_kws
         Keyword arguments for background (p > pval_threshold and |logFC| < logfc_threshold) scatter plot. Default is None.
-    lines_kws : dict | None, optional
+    lines_kws
         Keyword arguments for all lines. Default is None.
-    scatters_kws : dict | None, optional
+    scatters_kws
         Keyword arguments for all scatters. Default is None.
-    pval_line_kws : dict | None, optional
+    pval_line_kws
         Keyword arguments for p-value threshold line. Default is None.
-    pval_scatter_kws : dict | None, optional
+    pval_scatter_kws
         Keyword arguments for p-value threshold scatter. Default is None.
-    logfc_scatter_kws : dict | None, optional
+    logfc_scatter_kws
         Keyword arguments for logFC threshold scatter. Default is None.
-    logfc_scatter_kws_left : dict | None, optional
+    logfc_scatter_kws_left
         Keyword arguments for logFC threshold scatter on the left side. Default is None.
-    logfc_scatter_kws_right : dict | None, optional
+    logfc_scatter_kws_right
         Keyword arguments for logFC threshold scatter on the right side. Default is None.
-    logfc_line_kws : dict | None, optional
+    logfc_line_kws
         Keyword arguments for logFC threshold line. Default is None.
-    logfc_line_kws_left : dict | None, optional
+    logfc_line_kws_left
         Keyword arguments for logFC threshold line on the left side. Default is None.
-    logfc_line_kws_right : dict | None, optional
+    logfc_line_kws_right
         Keyword arguments for logFC threshold line on the right side. Default is None.
-    pval_logfc_scatter_kws : dict | None, optional
+    pval_logfc_scatter_kws
         Keyword arguments for p-value and logFC threshold scatter. Default is None.
-    pval_logfc_scatter_kws_left : dict | None, optional
+    pval_logfc_scatter_kws_left
         Keyword arguments for p-value and logFC threshold scatter on the left side. Default is None.
-    pval_logfc_scatter_kws_right : dict | None, optional
+    pval_logfc_scatter_kws_right
         Keyword arguments for p-value and logFC threshold scatter on the right side. Default is None.
-    highlight_scatter_kws : dict | None, optional
+    highlight_scatter_kws
         Keyword arguments for highlight scatter plot. Default is None.
-    highlight_scatter_kws_right : dict | None, optional
+    highlight_scatter_kws_right
         Keyword arguments for highlight scatter plot on the right side. Default is None.
-    highlight_scatter_kws_left : dict | None, optional
+    highlight_scatter_kws_left
         Keyword arguments for highlight scatter plot on the left side. Default is None.
-    text_kws : dict | None, optional
+    text_kws
         Keyword arguments for text. Default is None.
-    text_kws_right : dict | None, optional
+    text_kws_right
         Keyword arguments for text on the right side. Default is None.
-    text_kws_left : dict | None, optional
+    text_kws_left
         Keyword arguments for text on the left side. Default is None.
-    xlim : tuple[float, float] | None, optional
+    xlim
         x-axis limits. Default is None.
-    ylim : tuple[float, float] | None, optional
+    ylim
         y-axis limits. Default is None.
-    title : str | None, optional
+    title
         Title of the plot. Default is "Volcano plot".
-    xlabel : str | None, optional
+    xlabel
         x-axis label. Default is None.
-    ylabel : str | None, optional
+    ylabel
         y-axis label. Default is None.
-    grid : bool, optional
+    grid
         Whether to draw grid lines. Default is True.
-    rasterize : bool, optional
+    rasterize
         Whether to rasterize the plot. Default is True.
-    show : bool, optional
+    show
         Whether to show the plot. Default is True.
-    figsize : tuple[float, float] | None, optional
+    figsize
         Figure size. Default is None.
 
     Returns
     -------
-    fig : matplotlib.figure.Figure
-        Figure object if return_fig is True.
+    Figure object if return_fig is True.
     """
     try:
         import textalloc as ta
@@ -2393,34 +2380,33 @@ def shap_volcano(
 
     Parameters
     ----------
-    shapdata : AnnData
+    shapdata
         Annotated data matrix with SHAP values in `layers[layer]` and gene expression correlations in `varm["gex_r"][layer]`.
-    layer : str
+    layer
         Layer in `shapdata.layers` with SHAP values.
-    min_corr : float, optional
+    min_corr
         Minimum correlation threshold for plotting. Default is 0.5.
-    xlabel : str, optional
+    xlabel
         Label for the x-axis. Default is "corr(SHAP, Expr)".
-    ylabel : str, optional
+    ylabel
         Label for the y-axis. Default is "mean(|SHAP|)".
-    title : str | None, optional
+    title
         Title for the plot. Default is None.
-    return_fig : bool, optional
+    return_fig
         Whether to return the figure object. Default is False.
-    show : bool, optional
+    show
         Whether to show the plot. Default is True.
-    figsize : tuple[float, float] | None, optional
+    figsize
         Figure size. Default is None.
-    ax : matplotlib.axes.Axes | None, optional
+    ax
         Axes object to draw on. Default is None.
     **kwargs
         Additional keyword arguments for `volcano()`.
 
     Returns
     -------
-    plt.Figure | matplotlib.axes.Axes | None
-        Same as `c2v.pl.volcano`: figure if `return_fig` is True; the created axes if `show`
-        is False and `ax` is None; otherwise None.
+    Same as `c2v.pl.volcano`: figure if `return_fig` is True; the created axes if `show`
+    is False and `ax` is None; otherwise None.
     """
 
     if title is None:
@@ -2467,49 +2453,48 @@ def barplot(
 
     Parameters
     ----------
-    data : pd.Series
+    data
         Data to plot.
-    kind : Literal["h", "v"], optional
+    kind
         Kind of plot. Default is "v".
-    ax : plt.Axes | None, optional
+    ax
         Axes object to draw on. Default is None.
-    cmap : str, optional
+    cmap
         Colormap to use. Default is "Reds".
-    vmax : float | None, optional
+    vmax
         Maximum value for colormap normalization. Default is None.
-    vmin : float | None, optional
+    vmin
         Minimum value for colormap normalization. Default is 0.
-    return_fig : bool, optional
+    return_fig
         Whether to return the figure object. Default is False.
-    show : bool, optional
+    show
         Whether to show the plot. Default is True.
-    title : str | None, optional
+    title
         Title for the plot. Default is None.
-    right_spines : bool | None, optional
+    right_spines
         Whether to show right spines. Default is None.
-    left_spines : bool | None, optional
+    left_spines
         Whether to show left spines. Default is None.
-    top_spines : bool | None, optional
+    top_spines
         Whether to show top spines. Default is None.
-    bottom_spines : bool | None, optional
+    bottom_spines
         Whether to show bottom spines. Default is None.
-    width : float, optional
+    width
         Width of the bars. Default is 0.8.
-    figsize : tuple[float, float] | None, optional
+    figsize
         Figure size. Default is None.
-    edgecolor : str, optional
+    edgecolor
         Edge color of the bars. Default is "black".
-    rotation : float | None, optional
+    rotation
         Rotation angle for labels, if None rotation depends on the plot kind. Default is None.
-    arrow : list[Literal["right-bottom", "top-left"]] | Literal["right-bottom", "top-left"] | None, optional
+    arrow
         Whether to add arrow to the plot. Default is None.
     **kwargs
         Additional keyword arguments for `ax.bar()`.
 
     Returns
     -------
-    fig : plt.Figure | None
-        Figure object if `return_fig` is True, otherwise None.
+    Figure object if `return_fig` is True, otherwise None.
     """
 
     import matplotlib.colors as mcolors
@@ -2627,35 +2612,34 @@ def predictors_comparison(
 
     Parameters
     ----------
-    shapdata : sc.AnnData
+    shapdata
         Annotated data matrix with SHAP values in `varm`.
-    group1 : str
+    group1
         Name of the first group.
-    group2 : str
+    group2
         Name of the second group.
-    varm_key : str | None, optional
+    varm_key
         Key in `varm` to SHAP values. Default is None.
-    n_genes : int, optional
+    n_genes
         Number of top and bottom genes to plot. Default is 10.
-    cmap : str, optional
+    cmap
         Colormap to use. Default is "RdBu_r".
-    title: str | None, optional
+    title
         Title for the plot. Default is None.
-    show : bool, optional
+    show
         Whether to show the plot. Default is True.
-    figsize : tuple[float, float] | None, optional
+    figsize
         Figure size. Default is None.
-    ax : plt.Axes | None, optional
+    ax
         Axes object to draw on. Default is None.
-    return_fig : bool, optional
+    return_fig
         Whether to return the figure object. Default is False.
     **kwargs
         Additional keyword arguments for `ax.bar()`.
 
     Returns
     -------
-    fig : plt.Figure | plt.Axes | None
-        Figure object if `return_fig` is True, Axes if `show` is False, otherwise None.
+    Figure object if `return_fig` is True, Axes if `show` is False, otherwise None.
     """
     if varm_key is None:
         try:
@@ -2722,64 +2706,63 @@ def heatmap(
 
     Parameters
     ----------
-    df : pd.DataFrame
+    df
         DataFrame to be visualized.
-    cmap : str, optional
+    cmap
         Colormap to be used. Default is "RdBu_r".
-    linecolor : str, optional
+    linecolor
         Color of the lines between cells. Default is "black".
-    linewidth : float, optional
+    linewidth
         Width of the lines between cells. Default is 0.5.
-    borderwidth_hm : float, optional
+    borderwidth_hm
         Width of the border around the heatmap. Default is 2.
-    square : bool, optional
+    square
         Whether to make cells square. Default is True.
-    cbar_scale : float, optional
+    cbar_scale
         Scale of the colorbar. Default is 0.6.
-    cbar_aspect : float, optional
+    cbar_aspect
         Aspect ratio of the colorbar. Default is 20.
-    cbar_pad : float, optional
+    cbar_pad
         Padding between the heatmap and the colorbar. Default is 0.025.
-    cmap_border : float, optional
+    cmap_border
         Width of the border around the colormap. Default is 1.
-    cbar_title : str, optional
+    cbar_title
         Title of the colorbar. Default is "".
-    centered_cbar : bool, optional
+    centered_cbar
         Whether to make the color scale symmetric around zero with
         `vmax = -vmin = max(|data|)`. Ignored if `vmin` or `vmax` is passed. Default is True.
-    ax : plt.Axes | None, optional
+    ax
         Axes object to draw the heatmap on. Default is None.
-    x_rotation : float, optional
+    x_rotation
         Rotation angle for x-axis labels. Default is 0.
-    y_rotation : float, optional
+    y_rotation
         Rotation angle for y-axis labels. Default is 0.
-    xlabels : bool, optional
+    xlabels
         Whether to show x-axis labels. Default is True.
-    ylabels : bool, optional
+    ylabels
         Whether to show y-axis labels. Default is True.
-    sort_columns : bool, optional
+    sort_columns
         Whether to hierarchically sort columns for display. Default is True.
-    sort_rows : bool, optional
+    sort_rows
         Whether to hierarchically sort rows for display. Default is False.
-    linkage_method : str, optional
+    linkage_method
         Linkage method for hierarchical clustering. Default is "average".
-    linkage_metric : str, optional
+    linkage_metric
         Linkage metric for hierarchical clustering. Default is "euclidean".
-    return_fig : bool, optional
+    return_fig
         Whether to return the figure object. Default is False.
-    title : str | None, optional
+    title
         Title for the plot. Default is None.
-    show : bool, optional
+    show
         Whether to show the plot. Default is True.
-    figsize : tuple[float, float] | None, optional
+    figsize
         Figure size. Default is None.
     **kwargs
         Additional keyword arguments for `sns.heatmap()`.
 
     Returns
     -------
-    fig : plt.Figure | plt.Axes | None
-        Figure object if `return_fig` is True, Axes if `show` is False, otherwise None.
+    Figure object if `return_fig` is True, Axes if `show` is False, otherwise None.
     """
 
     import matplotlib.patches as patches
@@ -2881,11 +2864,11 @@ def _cmap(
 
     Parameters
     ----------
-    initial_cmap : str, optional
+    initial_cmap
         What color map will be the base for novel color map.
-    grey_intensity : float, optional
+    grey_intensity
         What intensity of grey should be at the start of color map.
-    color_intencity : float, optional
+    color_intencity
         What intensity of color should be after grey at color map
 
     Returns
@@ -2922,36 +2905,35 @@ def catboost_performance(
 
     Parameters
     ----------
-    shapdata : sc.AnnData
+    shapdata
         Annotated data matrix.
-    var_names : str | list[str], optional
+    var_names
         Names of the variables to visualize. If None, all fates will be
         visualized.
-    set_type : Literal["train", "validation"], optional
+    set_type
         Whether to visualize train or validation set.
-    ncols : int, optional
+    ncols
         Number of columns in the plot.
-    ax : matplotlib.axes.Axes | list[matplotlib.axes.Axes], optional
+    ax
         Axes to plot on. If None, new figure will be created.
-    return_fig : bool, optional
+    return_fig
         Whether to return figure object.
-    show : bool, optional
+    show
         Whether to show the plot. Default is True.
-    figsize : tuple[float, float] | None, optional
+    figsize
         Figure size. Default is None.
-    line_kws : dict | list[dict], optional
+    line_kws
         Keyword arguments for line plot.
-    scatter_kws : dict | list[dict], optional
+    scatter_kws
         Keyword arguments for scatter plot.
-    kwargs : dict | list[dict], optional
+    kwargs
         Keyword arguments for sns.lineplot.
-    title : str | list[str], optional
+    title
         Title of the plot.
     
     Returns
     -------
-    fig : matplotlib.figure.Figure | matplotlib.axes.Axes | np.ndarray | list[matplotlib.axes.Axes] | None
-        Figure object if `return_fig` is True, Axes if `show` is False, otherwise None.
+    Figure object if `return_fig` is True, Axes if `show` is False, otherwise None.
     """
 
     import scipy.sparse as sp
@@ -3120,35 +3102,34 @@ def small_cbar(
     x_pad: float = 0.02,
     y_pad: float = 0,
     show_numbers: bool = True,
-):
+) -> None:
     """
     Replaces existing colorbars of the specified axes with small colorbars inside their
     right edge, labelled only with the minimum and maximum values.
 
     Parameters
     ----------
-    axes : matplotlib.axes.Axes | list[matplotlib.axes.Axes]
+    axes
         The axes object(s) to draw on (e.g., fig.axes[0]).
-    width : float, optional
+    width
         Width of the colorbar. Default 3%.
-    height : float, optional
+    height
         Height of each colorbar. Default 20%.
-    fontsize : int, optional
+    fontsize
         Font size for tick labels. Default 10.
-    ticks_round : int, optional
+    ticks_round
         Number of decimal places to round tick labels. Default 2.
-    x_pad : float, optional
+    x_pad
         Padding from the right edge (0.0 to 1.0). Default 2%.
-    y_pad : float, optional
+    y_pad
         Padding from the top edge (0.0 to 1.0). Default 0%.
-    show_numbers : bool, optional
+    show_numbers
         Whether to show numeric tick labels. If False, ticks are labelled "Min" and "Max".
         Default True.
 
     Returns
     -------
-    None
-        The axes are modified in place.
+    The axes are modified in place.
     """
     if not isinstance(axes, Iterable):
         axes = [axes]
@@ -3194,8 +3175,8 @@ def embedding_axis(
     label: str = "UMAP",
     label1: str | None = None,
     label2: str | None = None,
-    font_size: int = 10.
-):
+    font_size: int = 10,
+) -> None:
     """
     Adds two perpendicular arrows (L-shape) to the bottom-left corner of the plot
     to mimic standard single-cell embedding visualizations (Seurat/Scanpy). The regular
@@ -3203,33 +3184,32 @@ def embedding_axis(
 
     Parameters
     ----------
-    axes : matplotlib.axes.Axes | list[matplotlib.axes.Axes]
+    axes
         The axes object to draw on (e.g., fig.axes[0]).
-    x_offset : float, optional
+    x_offset
         Distance from left edge (0.0 to 1.0). Default 0.
-    y_offset : float, optional
+    y_offset
         Distance from bottom edge (0.0 to 1.0). Default 0.
-    length : float, optional
+    length
         Length of the arrows as a fraction of the axes size. Default 15%.
-    arrow_width : float, optional
+    arrow_width
         Width of the arrow shaft. Default 0.0001.
-    head_width : float, optional
+    head_width
         Width of the arrow head. Default 0.02.
-    color : str, optional
+    color
         Color of arrows and text. Default "black".
-    label : str, optional
+    label
         Label for the horizontal and vertical arrows. Default "UMAP".
-    label1 : str, optional
+    label1
         Label for the horizontal arrow. If None, label + " 1" is used. Default None.
-    label2 : str, optional
+    label2
         Label for the vertical arrow. If None, label + " 2" is used. Default None.
-    font_size : int, optional
+    font_size
         Size of the text labels. Default 10.
 
     Returns
     -------
-    None
-        The axes are modified in place.
+    The axes are modified in place.
     """
     if not isinstance(axes, Iterable):
         axes = [axes]
@@ -3281,42 +3261,41 @@ def embedding_axis(
         )
 
 def fancy_legend(
-    axes,
+    axes: matplotlib.axes.Axes | list[matplotlib.axes.Axes],
     textsize: int = 10,
     fontweight: str = "normal",
     center_loc: bool = False,
     line: bool = False,
     max_distance: float = 0.2,
     **kwargs,
-):
+) -> None:
     """
     Replaces the legend of a categorical scatter plot with labels placed next to the cluster
     centers (median of the points of each legend color). Requires `textalloc`.
 
     Parameters
     ----------
-    axes : matplotlib.axes.Axes | list[matplotlib.axes.Axes]
+    axes
         The axes object to draw on (e.g., fig.axes[0]); must contain a legend.
-    textsize : int, optional
+    textsize
         Size of the text labels. Default 10.
-    fontweight : str, optional
+    fontweight
         Font weight of the text labels. Default "normal".
-    center_loc : bool, optional
+    center_loc
         If True, labels are put exactly at the cluster centers; otherwise they are placed
         near the centers avoiding overlaps with points and other labels. Default False.
-    line : bool, optional
+    line
         Whether to draw lines connecting labels to the cluster centers (only if
         `center_loc` is False). Default False.
-    max_distance : float, optional
+    max_distance
         Maximum distance of a label from its cluster center as a fraction of the axes size
         (only if `center_loc` is False). Default 0.2.
-    **kwargs : dict, optional
+    **kwargs
         Additional keyword arguments passed to `textalloc.allocate()`.
 
     Returns
     -------
-    None
-        The axes are modified in place.
+    The axes are modified in place.
     """
 
     import textalloc as ta
@@ -3444,8 +3423,8 @@ def scaled_dotplot(
     vmax: float = 2.5,
     colorbar_title: str = "Mean Z-score",
     max_value: float = 5.,
-    **kwargs
-):
+    **kwargs,
+) -> matplotlib.axes.Axes:
     """
     Function plots dotplot colored by scaled expression values. The problem with
     sc.pl.dotplot is that dot_size is defined by amount of the expression values
@@ -3453,29 +3432,28 @@ def scaled_dotplot(
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         Annotated data matrix.
-    groupby : str
+    groupby
         Key for observations grouping.
-    var_names : list[str]
+    var_names
         List of genes to plot.
-    cmap : str
+    cmap
         Colormap to use. Default is "RdBu_r".
-    vmin : float
+    vmin
         Minimum value for color scaling. Default is -2.5.
-    vmax : float
+    vmax
         Maximum value for color scaling. Default is 2.5.
-    colorbar_title : str
+    colorbar_title
         Title for the colorbar. Default is "Mean Z-score".
-    max_value : float
+    max_value
         Maximum value for scaling expression values. Default is 5.
     **kwargs
         Additional keyword arguments to pass to sc.pl.dotplot.
 
     Returns
     -------
-    matplotlib.axes.Axes
-        Axes object with the dotplot.
+    Axes object with the dotplot.
     """
 
     if adata.raw:
@@ -3534,59 +3512,58 @@ def scatter2vars(
 
     Parameters
     ----------
-    adata : sc.AnnData
+    adata
         Annotated data matrix.
-    var1 : str
+    var1
         First variable: a gene name or a column in `adata.obs`, shown in color `c1`.
-    var2 : str
+    var2
         Second variable: a gene name or a column in `adata.obs`, shown in color `c2`.
-    clip1 : tuple[float, float] | None
+    clip1
         Clip values for variable 1. Default is None.
-    clip2 : tuple[float, float] | None
+    clip2
         Clip values for variable 2. Default is None.
-    c1 : Literal["red", "green", "blue"]
+    c1
         Color for variable 1. Default is "red".
-    c2 : Literal["red", "green", "blue"]
+    c2
         Color for variable 2. Default is "blue".
-    basis : str
+    basis
         Key for embedding. Default is "X_umap".
-    use_raw : bool | None
+    use_raw
         Whether to use raw data. Default is None.
-    components : str | None
+    components
         Components to use. Default is None.
-    s : float | None
+    s
         Size of points. Default is None.
-    alpha : float 
+    alpha
         Transparency of points. Default is 1.
-    frameon : bool
+    frameon
         Whether to draw frame. Default is True.
-    title : str | None
+    title
         Title for the plot. Default is None.
-    ax : matplotlib.axes.Axes | None
+    ax
         Axes object to draw on. Default is None.
-    rasterize : bool
+    rasterize
         Whether to rasterize points. Default is False.
-    ticks : bool
+    ticks
         Whether to draw ticks. Default is False.
-    round_ticks : int
+    round_ticks
         Number of decimal places to round ticks. Default is 2.
-    bright_level : float
+    bright_level
         Brightness level for points. Default is 0.8.
-    grey_level : float
+    grey_level
         Grey level for points. Default is 0.9.
-    show : bool
+    show
         Whether to show the plot. Default is True.
-    return_fig : bool
+    return_fig
         Whether to return figure object. Default is False.
-    cbar : bool
+    cbar
         Whether to draw colorbar. Default is True.
-    figsize : tuple[float, float] | None
+    figsize
         Figure size. Default is None.
 
     Returns
     -------
-    matplotlib.axes.Axes | matplotlib.figure.Figure | None
-        Axes object with the plot or figure if return_fig is True. None if show is False.
+    Axes object with the plot or figure if return_fig is True. None if show is False.
     """
 
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
@@ -3804,42 +3781,41 @@ def de_trend(
 
     Parameters
     ----------
-    clones : sc.AnnData
+    clones
         Clone-level AnnData with expression in `.X` and the masked embedding in `.obsm`.
-    genes : str | list[str]
+    genes
         Gene(s) in `clones.var_names` to plot, one panel per gene.
-    groupby : str
+    groupby
         Column in `clones.obs` with clone groups.
-    reference : str | list[str]
+    reference
         Reference group(s); must not overlap with `test`.
-    test : str | list[str]
+    test
         Test group(s); must not overlap with `reference`.
-    masked_embedding : str, optional
+    masked_embedding
         Key in `clones.obsm` with the embedding from `tl.mask_heterogeneity`, by default "clone2vec_mask".
-    n_neighbors : int, optional
+    n_neighbors
         Number of neighbours in the kNN graph, by default 10.
-    keep_clones : Literal["exact", "similar"], optional
+    keep_clones
         "exact": only clones from `reference` and `test` are shown; "similar": clones with at
         least one `reference` or `test` clone among neighbours are shown too. By default "exact".
-    ncols : int, optional
+    ncols
         Number of panels per row, by default 4.
-    s : float, optional
+    s
         Size of points, by default 20.
-    alpha : float, optional
+    alpha
         Transparency of points, by default 0.7.
-    colors : tuple[str, str, str], optional
+    colors
         Colors of reference, test and neighbouring clones, by default ("#1f77b4", "#d62728", "lightgrey").
-    figsize : tuple[float, float] | None, optional
+    figsize
         Figure size, by default (3.5 * ncols, 3 * nrows).
-    show : bool, optional
+    show
         Whether to show the plot, by default True.
-    return_fig : bool, optional
+    return_fig
         Whether to return the figure, by default False.
 
     Returns
     -------
-    plt.Figure | np.ndarray | None
-        Figure if `return_fig`, array of axes if `show` is False, otherwise None.
+    Figure if `return_fig`, array of axes if `show` is False, otherwise None.
     """
     from .associations import _masked_score
 
