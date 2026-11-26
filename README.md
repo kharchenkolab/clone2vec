@@ -43,3 +43,21 @@ on the following systems:
 
 Please visit [documentation web-site](https://clone2vec.readthedocs.io/en/latest/) to check out API description and a few
 tutorials with analysis.
+
+## Citation
+
+If you use this code or clone2vec in your work, please cite:
+
+> Isaev S, Erickson AG, Adameyko I, Kharchenko PV. Clonal embeddings allow exploratory analysis of lineage-resolved single-cell data. *bioRxiv* 2026.04.30.720820 (2026). https://doi.org/10.64898/2026.04.30.720820
+
+```bibtex
+@article{isaev2026clonal,
+  title   = {Clonal embeddings allow exploratory analysis of lineage-resolved single-cell data},
+  author  = {Isaev, Sergey and Erickson, Alek G and Adameyko, Igor and Kharchenko, Peter V},
+  journal = {bioRxiv},
+  year    = {2026},
+  pages   = {2026.04.30.720820},
+  doi     = {10.64898/2026.04.30.720820},
+  url     = {https://doi.org/10.64898/2026.04.30.720820}
+}
+```
