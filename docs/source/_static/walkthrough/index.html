@@ -1102,9 +1102,32 @@
       display: block
     }
 
+    .sim-top {
+      display: grid;
+      gap: 8px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line)
+    }
+
+    .seg.preset-seg {
+      flex-wrap: nowrap;
+      max-width: 100%;
+      overflow-x: auto;
+      scrollbar-width: thin
+    }
+
     .preset-seg button {
       font-size: 13px;
-      padding: 5px 11px
+      padding: 5px 12px;
+      white-space: nowrap;
+      flex: none
+    }
+
+    @media (max-width:519px) {
+      .seg.preset-seg {
+        flex-wrap: wrap;
+        overflow-x: visible
+      }
     }
 
     #edHeat,
@@ -1236,6 +1259,12 @@
       <h2>A simulated lineage-tracing experiment</h2>
     </section>
     <section class="card sim" id="sim">
+      <div class="sim-top">
+        <div class="ctl"><label>Example</label>
+          <div class="seg preset-seg" id="simPresets"></div>
+        </div>
+        <div class="dsum" id="simStats"></div>
+      </div>
       <div class="sim-grid">
         <div class="sim-view">
           <div class="ctl"><label>Color by</label>
@@ -1252,10 +1281,6 @@
             Every clone is a set of barcoded cells drawn from one of ten hidden <b>shapes</b>: a core, three rings, and
             six crosses rotated in 15° steps. A good clone representation should put clones of the same shape together
             without being told the shapes.</p>
-          <div class="ctl"><label>Example</label>
-            <div class="seg preset-seg" id="simPresets"></div>
-          </div>
-          <div class="dsum" id="simStats"></div>
           <div>
             <div class="eyebrow" style="margin-bottom:4px">Clone sizes · click a bar to show a clone of that size</div>
             <canvas id="simHist" aria-label="Histogram of clone sizes"></canvas>

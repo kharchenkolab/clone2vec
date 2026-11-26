@@ -1,17 +1,12 @@
 Computational intuitions
 ========================
 
-This page explains why clone2vec is built the way it is, using a toy system where the right answer is known: **rings
-and crosses**. Each design choice is introduced as a fix for a concrete failure that you can reproduce in the
-interactive walkthrough at the bottom of the page. Everything runs in your browser on simulated data; nothing is sent
-to a server.
+Why is clone2vec built the way it is? This page answers that question with a toy system where the right answer is
+known: **rings and crosses**. Below is an interactive walkthrough of the whole pipeline, running live in your browser
+on simulated data (nothing is sent to a server), with a short list of things to try in it. The explanations behind
+each observation follow after the walkthrough.
 
 For the biological side of the same ideas, see :doc:`biological_intuitions`. For the code, see :doc:`tutorial`.
-
-.. image:: _static/images/pipeline.png
-   :alt: clone2vec pipeline
-   :width: 800
-   :align: center
 
 The toy system
 --------------
@@ -27,104 +22,24 @@ through the centre and differ only by angle, so clones of different crosses shar
 of the same cross may not have a single cell in the same place. The crosses also form a continuum that wraps around:
 75° is next to 0°, just as real differentiation paths share early states and diverge later.
 
-Six ready-made examples range from easy to hard by changing the number and size of clones:
+Six ready-made examples, from *Toy* to *Extreme*, change the number and size of clones. Under *Edit dataset*, you
+can also set the number of clones per shape, the clone-size distribution and the fraction of cells captured.
 
-* **Toy:** 10 clones, enough to follow every number by hand.
-* **Very easy / Easy:** 200 clones of 100 or 30 cells.
-* **Hard / Very hard:** realistic, heavy-tailed clone sizes, with many clones of only a few cells.
-* **Extreme:** half the clones have 2–4 cells, the other half 60–120.
+Things to try
+-------------
 
-You can also edit the dataset yourself: the number of clones per shape, the clone-size distribution, and the fraction
-of cells captured.
-
-Lesson 1: comparing clones directly needs dense sampling
---------------------------------------------------------
-
-The most direct way to compare two clones is to compare their cell distributions, for example with the energy
-distance: ``E(A,B) = 2·mean‖a−b‖ − mean‖a−a′‖ − mean‖b−b′‖``. It is zero when both clones come from the same
-distribution.
-
-This works when clones are large, because each clone then fills in its shape. With small clones, each distribution is
-estimated from a few cells, so the distance mostly measures which cells happened to be sampled. Two small clones of
-the same cross look far apart unless their few cells land near each other.
-
-**Try it:** in Part 2, compare the E-distance heatmap and t-SNE for *Very easy* and *Very hard*. With large clones the
-shapes separate; with small clones they blur together.
-
-Lesson 2: describe a clone by its neighbours
---------------------------------------------
-
-clone2vec does not compare clone shapes directly. Instead, it asks every barcoded cell which clones its *k* nearest
-neighbours belong to, and adds these counts up per clone. The result is a clone × clone matrix: row *i* says how
-often the cells of clone *i* sit next to cells of every clone.
-
-This changes what "similar" means. Two clones of the same cross never need to share a position: it is enough that
-both sit next to cells of *other* clones of that cross. A three-cell clone gives only three points for its shape, but
-3 × *k* neighbour observations, all comparable with those of a large clone. The neighbourhood size *k* is the scale of
-the comparison: a small *k* reads fine structure but gives noisy counts, a large *k* averages over wider regions and
-blurs neighbouring shapes together.
-
-**Try it:** in Part 3, open step 1 with the *Toy* example and click cells of the matrix: the left panel draws exactly
-the neighbour edges behind each number. With *Easy*, the matrix shows blocks along the diagonal, one per shape.
-
-Lesson 3: rows have very different totals
------------------------------------------
-
-The rows of the neighbour-count matrix are not on the same scale: a clone with 300 cells collects 100 times more
-neighbours than a clone with 3 cells. The usual single-cell recipe fixes this by scaling every row to the same total
-and taking ``log1p`` before PCA.
-
-That scaling hides how much evidence each row has. After normalization, a row built from 15 neighbours counts as
-much as a row built from 1,500. A tiny clone's row is mostly zeros, and mostly-zero rows look alike regardless of
-the shape they came from, so PCA pulls the tiny clones of every shape towards the same place.
-
-**Try it:** load *Extreme*, go to step 3 and switch between *PCA* and *GLM-PCA*. With PCA, the tiny clones of all
-shapes gather in a central blob; with GLM-PCA, most of them sit with their shape.
-
-Lesson 4: model the counts instead of normalizing them
-------------------------------------------------------
-
-clone2vec keeps the raw counts and fits a model of them. Each row is treated as a **multinomial sample**: the
-clone's neighbours are split between clones with probabilities ``softmax(C·W + b)``. ``C`` holds one low-dimensional
-vector per clone (the clonal embedding), ``W`` describes each neighbour clone, and ``b`` captures how common each clone
-is overall. This is a multinomial GLM-PCA, and it is the same objective as the Skip-Gram model of word2vec: predict
-the clones of a cell's neighbours from the cell's own clone.
-
-Three consequences follow:
-
-* **Each clone is weighted by its evidence.** A row with 1,500 neighbours contributes 1,500 observations to the
-  likelihood, a row with 15 only 15. Small clones are kept, but they can't distort the embedding.
-* **Zeros need no special treatment.** A missing neighbour is simply an observed count of zero; there is no
-  pseudo-count to choose.
-* **Overall abundance is factored out.** Because ``b`` absorbs how common each clone is, ``C`` describes how a clone's
-  neighbourhood *deviates* from the average one. Distances in the embedding follow the pointwise mutual information
-  between clones: whether two clones meet more or less often than chance would predict.
-
-**Try it:** in step 2, watch the GLM-PCA fit converge and click a clone to compare its observed and reconstructed
-neighbour profile.
-
-Lesson 5: length is evidence, direction is behaviour
-----------------------------------------------------
-
-A clone with little data gives the model little reason to move it away from the average neighbourhood, so its
-embedding vector stays short, close to the origin. Its *direction* still points toward the shape it belongs to. Large
-clones have long vectors. The walkthrough therefore compares clones by direction (cosine distance) before running
-t-SNE, so that tiny clones are not mistaken for a separate group just because they have little data.
-
-The same geometry makes mixtures easy to read: a clone that splits its cells equally between two behaviours ends up
-between the clones that show each behaviour alone.
-
-What the toy does and doesn't show
-----------------------------------
-
-* **When clones are large, the methods agree.** With *Very easy* or *Easy*, PCA and GLM-PCA give nearly the same
-  picture. The difference shows when clone sizes are small and uneven, as in *Extreme*, which is the typical regime of
-  real lineage tracing data.
-* **No method recovers information that isn't there.** In *Very hard*, many clones have two or three cells, and all
-  approaches lose part of the structure. Describing clones by their neighbours still keeps much more of it than
-  comparing their cells directly, but no model can make a two-cell clone informative.
-* **The toy is two-dimensional.** Real expression spaces are high-dimensional and the kNN graph is built in PCA or
-  a batch-corrected space, but the logic of every lesson above carries over unchanged.
+1. **See the problem.** In Part 1, switch from *Very easy* to *Very hard*. Clones shrink from filled-in shapes to a
+   few scattered cells, and most clones have only 2–3 cells. (Why this matters: :ref:`ci-direct`.)
+2. **Compare clones directly.** In Part 2, compare the E-distance t-SNE for *Very easy* and *Very hard*. The shapes
+   separate with large clones and blur together with small ones. (:ref:`ci-direct`)
+3. **Follow one number.** In Part 3, step 1, load *Toy* and click a cell of the matrix. The left panel draws exactly
+   the neighbour edges behind that number. With *Easy*, the matrix shows one block per shape.
+   (:ref:`ci-neighbours`)
+4. **Break PCA.** Load *Extreme*, go to step 3 and switch between *PCA* and *GLM-PCA*. With PCA, the tiny clones of
+   all shapes gather in a central blob; with GLM-PCA, most of them sit with their shape. (:ref:`ci-totals` and
+   :ref:`ci-model`)
+5. **Look inside the model.** In step 2, watch the GLM-PCA fit converge, then click a clone to compare its observed
+   and reconstructed neighbour profile. (:ref:`ci-model`)
 
 Interactive walkthrough
 -----------------------
@@ -173,6 +88,101 @@ Interactive walkthrough
 
    The interactive walkthrough is available in the online documentation at
    https://clone2vec.readthedocs.io/computational_intuitions.html.
+
+Why it works this way
+---------------------
+
+.. image:: _static/images/comp1.png
+   :alt: clone2vec pipeline
+   :width: 800
+   :align: center
+
+.. _ci-direct:
+
+Comparing clones directly needs dense sampling
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The most direct way to compare two clones is to compare their cell distributions, for example with the energy
+distance: ``E(A,B) = 2·mean‖a−b‖ − mean‖a−a′‖ − mean‖b−b′‖``. It is zero when both clones come from the same
+distribution.
+
+This works when clones are large, because each clone then fills in its shape. With small clones, each distribution is
+estimated from a few cells, so the distance mostly measures which cells happened to be sampled. Two small clones of
+the same cross look far apart unless their few cells land near each other.
+
+.. _ci-neighbours:
+
+Describing a clone by its neighbours
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+clone2vec does not compare clone shapes directly. Instead, it asks every barcoded cell which clones its *k* nearest
+neighbours belong to, and adds these counts up per clone. The result is a clone × clone matrix: row *i* says how
+often the cells of clone *i* sit next to cells of every clone.
+
+This changes what "similar" means. Two clones of the same cross never need to share a position: it is enough that
+both sit next to cells of *other* clones of that cross. A three-cell clone gives only three points for its shape, but
+3 × *k* neighbour observations, all comparable with those of a large clone. The neighbourhood size *k* is the scale of
+the comparison: a small *k* reads fine structure but gives noisy counts, a large *k* averages over wider regions and
+blurs neighbouring shapes together.
+
+.. _ci-totals:
+
+Rows have very different totals
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The rows of the neighbour-count matrix are not on the same scale: a clone with 300 cells collects 100 times more
+neighbours than a clone with 3 cells. The usual single-cell recipe fixes this by scaling every row to the same total
+and taking ``log1p`` before PCA.
+
+That scaling hides how much evidence each row has. After normalization, a row built from 15 neighbours counts as
+much as a row built from 1,500. A tiny clone's row is mostly zeros, and mostly-zero rows look alike regardless of
+the shape they came from, so PCA pulls the tiny clones of every shape towards the same place.
+
+.. _ci-model:
+
+Modelling the counts instead of normalizing them
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+clone2vec keeps the raw counts and fits a model of them. Each row is treated as a **multinomial sample**: the
+clone's neighbours are split between clones with probabilities ``softmax(C·W + b)``. ``C`` holds one low-dimensional
+vector per clone (the clonal embedding), ``W`` describes each neighbour clone, and ``b`` captures how common each clone
+is overall. This is a multinomial GLM-PCA, and it is the same objective as the Skip-Gram model of word2vec: predict
+the clones of a cell's neighbours from the cell's own clone.
+
+Three consequences follow:
+
+* **Each clone is weighted by its evidence.** A row with 1,500 neighbours contributes 1,500 observations to the
+  likelihood, a row with 15 only 15. Small clones are kept, but they can't distort the embedding.
+* **Zeros need no special treatment.** A missing neighbour is simply an observed count of zero; there is no
+  pseudo-count to choose.
+* **Overall abundance is factored out.** Because ``b`` absorbs how common each clone is, ``C`` describes how a clone's
+  neighbourhood *deviates* from the average one. Distances in the embedding follow the pointwise mutual information
+  between clones: whether two clones meet more or less often than chance would predict.
+
+.. _ci-length:
+
+Length is evidence, direction is behaviour
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A clone with little data gives the model little reason to move it away from the average neighbourhood, so its
+embedding vector stays short, close to the origin. Its *direction* still points toward the shape it belongs to. Large
+clones have long vectors. The walkthrough therefore compares clones by direction (cosine distance) before running
+t-SNE, so that tiny clones are not mistaken for a separate group just because they have little data.
+
+The same geometry makes mixtures easy to read: a clone that splits its cells equally between two behaviours ends up
+between the clones that show each behaviour alone.
+
+What the toy does and doesn't show
+----------------------------------
+
+* **When clones are large, the methods agree.** With *Very easy* or *Easy*, PCA and GLM-PCA give nearly the same
+  picture. The difference shows when clone sizes are small and uneven, as in *Extreme*, which is the typical regime of
+  real lineage tracing data.
+* **No method recovers information that isn't there.** In *Very hard*, many clones have two or three cells, and all
+  approaches lose part of the structure. Describing clones by their neighbours still keeps much more of it than
+  comparing their cells directly, but no model can make a two-cell clone informative.
+* **The toy is two-dimensional.** Real expression spaces are high-dimensional and the kNN graph is built in PCA or
+  a batch-corrected space, but the logic of every explanation above carries over unchanged.
 
 From the toy to your data
 -------------------------
