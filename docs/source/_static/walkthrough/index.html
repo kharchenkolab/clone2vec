@@ -1524,7 +1524,7 @@
       const prob = new Float64Array(p); let z = 0; for (let j = 0; j < p; j++) { prob[j] = Math.exp(logit[j] - mx); z += prob[j]; }
       for (let j = 0; j < p; j++)prob[j] /= z; return { logit, prob };
     }
-    function glmStep(g, lr = 0.05, lam = 1e-3) {
+    function glmStep(g, lr = 0.05, lam = 3e-5) {
       const { n, p, k, X, C, W, rs, tot } = g, gC = new Float64Array(n * k), gW = new Float64Array(k * p), gb = new Float64Array(p); let loss = 0;
       for (let i = 0; i < n; i++) {
         const { prob } = glmRow(g, i), Xi = X[i];
@@ -2335,7 +2335,6 @@
         }
         rows = []; for (let i = 0; i < D.m; i++)rows.push(g.C.slice(i * k, i * k + k)); desc = `GLM-PCA ${k} factors, ${(100 * explained(g)).toFixed(0)}% deviance explained`;
       }
-      rows = rows.map(l2n);
       const perp = Math.max(2, Math.min(12, Math.floor((D.m - 1) / 3))), T = tsneInit(rows, perp, S.seed + 9 + S.refits), tits = 700; E.Y = T.Y;
       for (let it = 0; it < tits; it++) {
         tsneStep(T);
@@ -2427,9 +2426,6 @@
         drawHist('#simHist'); drawSimMain(); simInfo();
       });
     })();
-
-    /* ---------------- helpers ---------------- */
-    function l2n(r) { let q = 0; for (const v of r) q += v * v; q = Math.sqrt(q) || 1; return Float64Array.from(r, v => v / q); }
 
     /* ---------------- E-distance baseline ---------------- */
     function edReset() {

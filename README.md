@@ -51,7 +51,7 @@ If you use this code or clone2vec in your work, please cite:
 > Isaev S, Erickson AG, Adameyko I, Kharchenko PV. Clonal embeddings allow exploratory analysis of lineage-resolved single-cell data. *bioRxiv* 2026.04.30.720820 (2026). https://doi.org/10.64898/2026.04.30.720820
 
 ```bibtex
-@article{isaev2026clonal,
+@article{isaev2026clone2vec,
   title   = {Clonal embeddings allow exploratory analysis of lineage-resolved single-cell data},
   author  = {Isaev, Sergey and Erickson, Alek G and Adameyko, Igor and Kharchenko, Peter V},
   journal = {bioRxiv},

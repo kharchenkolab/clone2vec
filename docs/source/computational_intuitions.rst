@@ -159,18 +159,26 @@ Three consequences follow:
   neighbourhood *deviates* from the average one. Distances in the embedding follow the pointwise mutual information
   between clones: whether two clones meet more or less often than chance would predict.
 
-.. _ci-length:
+.. _ci-geometry:
 
-Length is evidence, direction is behaviour
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Distances in the embedding compare neighbourhoods
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A clone with little data gives the model little reason to move it away from the average neighbourhood, so its
-embedding vector stays short, close to the origin. Its *direction* still points toward the shape it belongs to. Large
-clones have long vectors. The walkthrough therefore compares clones by direction (cosine distance) before running
-t-SNE, so that tiny clones are not mistaken for a separate group just because they have little data.
+Why can we use plain Euclidean distances between clonal vectors, as ``sc.pp.neighbors`` does by default? It follows
+from the model itself. In GLM-PCA, the log-probability that a neighbour of clone *i* belongs to clone *j* is linear
+in the clone's vector: ``C_i·W_j + b_j``, minus a per-clone normalizing constant. For two clones *i* and *i′*, the
+difference between their predicted log neighbour profiles is therefore ``(C_i − C_i′)·W``, up to that constant.
 
-The same geometry makes mixtures easy to read: a clone that splits its cells equally between two behaviours ends up
-between the clones that show each behaviour alone.
+* **Close vectors mean similar neighbourhoods.** If two clones have nearly the same vector, the model predicts nearly
+  the same neighbourhood for both. The further apart their vectors, the more their log neighbour profiles differ.
+* **The difference vector is interpretable.** ``C_i − C_i′`` says *in which way* the two neighbourhoods differ, which
+  is what makes clonal axes and gene associations meaningful.
+* **Mixtures are easy to read.** A clone that splits its cells equally between two behaviours ends up between the
+  clones that show each behaviour alone.
+
+Small clones are still placed less precisely than large ones. With few neighbour observations, their position is
+uncertain, so they scatter more around the shape they belong to. This is the noise you see around each group in the
+*Extreme* example. The walkthrough uses Euclidean distances throughout, just like the package.
 
 What the toy does and doesn't show
 ----------------------------------
@@ -178,9 +186,10 @@ What the toy does and doesn't show
 * **When clones are large, the methods agree.** With *Very easy* or *Easy*, PCA and GLM-PCA give nearly the same
   picture. The difference shows when clone sizes are small and uneven, as in *Extreme*, which is the typical regime of
   real lineage tracing data.
-* **No method recovers information that isn't there.** In *Very hard*, many clones have two or three cells, and all
-  approaches lose part of the structure. Describing clones by their neighbours still keeps much more of it than
-  comparing their cells directly, but no model can make a two-cell clone informative.
+* **No method recovers information that isn't there.** In *Very hard*, most clones have two or three cells, and all
+  approaches lose part of the structure. Describing clones by their neighbours still keeps more of it than comparing
+  their cells directly. In this toy, PCA even does a little better than GLM-PCA here: the walkthrough's small model is
+  only lightly regularized and overfits clones of two or three cells. No model can make a two-cell clone informative.
 * **The toy is two-dimensional.** Real expression spaces are high-dimensional and the kNN graph is built in PCA or
   a batch-corrected space, but the logic of every explanation above carries over unchanged.
 
