@@ -5,11 +5,6 @@ This page explains what clone2vec does, which objects it works with, and what th
 After reading it you should know what each step computes and how to read the result. For full analyses on real
 datasets, see the Examples section.
 
-.. image:: _static/images/pipeline.png
-   :alt: clone2vec pipeline
-   :width: 800
-   :align: center
-
 The idea in three sentences
 ---------------------------
 
@@ -196,4 +191,4 @@ Where to go next
    * - The same method beyond clones: spatial clustering of genes
      - :doc:`Spatial_classification_mRNA`
 
-For every function and parameter, see the :doc:`api`. For the intuition behind the method, see :doc:`basics`.
+For every function and parameter, see the :doc:`api`. For the intuition behind the method, see :doc:`biological_intuitions` and :doc:`computational_intuitions`.

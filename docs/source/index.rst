@@ -1,5 +1,5 @@
 clone2vec — Python package for single cell lineage tracing analysis
-================================================================
+===================================================================
 
 **clone2vec** is a Python package for analysis of lineage tracing coupled with single-cell RNA-Seq.
 

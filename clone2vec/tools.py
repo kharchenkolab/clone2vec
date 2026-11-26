@@ -516,12 +516,12 @@ def mask_heterogeneity(
 
     Returns
     -------
-    Updates `clones` in-place with:
+    Updates `clones` in-place with the following fields.
 
-    - `.obsm['{c2v_key}_{key_added}']`: embedding matrix fitted on the masked graph
-      (`c2v_key` is "clone2vec" or "clone2vec_Poi").
-    - `.uns[key_added]`: dictionary with `clonal_nn` parameters (under "clonal_nn") and
-      training details (under `c2v_key`).
+    `clones.obsm['{c2v_key}_{key_added}']`
+        Embedding matrix fitted on the masked graph (`c2v_key` is "clone2vec" or "clone2vec_Poi").
+    `clones.uns[key_added]`
+        Dictionary with `clonal_nn` parameters (under "clonal_nn") and training details (under `c2v_key`).
     """
     hint = (
         "`mask_heterogeneity` is a wrapper that inherits the parameters of the original "

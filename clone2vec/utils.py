@@ -505,8 +505,8 @@ def correct_shap(
         Whether to normalize SHAP values by dividing by the maximum value for each prediction column.
         Default is False.
     key_added
-        Key in varm to store corrected SHAP values. If None, `shap_key` prefixed with "norm_"
-        (if `normalize`) and "signed_" (if `correct_sign`), e.g. "signed_mean_shap". Default is None.
+        Key in varm to store corrected SHAP values. If None, `shap_key` prefixed with ``"norm_"``
+        (if `normalize`) and ``"signed_"`` (if `correct_sign`), e.g. "signed_mean_shap". Default is None.
 
     Returns
     -------

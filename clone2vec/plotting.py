@@ -1806,7 +1806,7 @@ def volcano(
     highlight_names
         List of gene names to highlight in addition to top-DE genes. Default is None.
     background_scatter_kws
-        Keyword arguments for background (p > pval_threshold and |logFC| < logfc_threshold) scatter plot. Default is None.
+        Keyword arguments for background (p > pval_threshold and ``|logFC|`` < logfc_threshold) scatter plot. Default is None.
     lines_kws
         Keyword arguments for all lines. Default is None.
     scatters_kws
@@ -2389,7 +2389,7 @@ def shap_volcano(
     xlabel
         Label for the x-axis. Default is "corr(SHAP, Expr)".
     ylabel
-        Label for the y-axis. Default is "mean(|SHAP|)".
+        Label for the y-axis. Default is ``mean(|SHAP|)``.
     title
         Title for the plot. Default is None.
     return_fig

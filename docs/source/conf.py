@@ -47,7 +47,7 @@ extensions = [
 ]
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3/", None),
+    "python": ("https://docs.python.org/3.10/", None),
     "sphinx": ("https://www.sphinx-doc.org/en/master/", None),
     "scanpy": ("https://scanpy.readthedocs.io/en/stable/", None),
     "anndata": ("https://anndata.scverse.org/en/stable/", None),
@@ -56,11 +56,12 @@ intersphinx_mapping = {
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
     "matplotlib": ("https://matplotlib.org/stable/", None),
     "torch": ("https://pytorch.org/docs/stable/", None),
-    "mudata": ("https://mudata.readthedocs.io/en/latest/", None),
+    "mudata": ("https://mudata.scverse.org/stable/", None),
     "ipywidgets": ("https://ipywidgets.readthedocs.io/en/stable/", None),
 }
 intersphinx_disabled_domains = ["std"]
 
+exclude_patterns = ["_build", "**.ipynb_checkpoints"]
 templates_path = ["_templates"]
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
@@ -76,10 +77,7 @@ nbsphinx_codecell_lexer = "ipython3"
 html_theme_options = {
     # Toc options
     "collapse_navigation": True,
-    "sticky_navigation": False,
     "navigation_depth": 4,
-    "includehidden": True,
-    "logo_only": True,
     # Header GitHub repository button
     "repository_url": "https://github.com/kharchenkolab/clone2vec",
     "repository_branch": "main",
@@ -106,6 +104,7 @@ autodoc_typehints = "none"
 autodoc_docstring_signature = True
 qualname_overrides = {
     "anndata._core.anndata.AnnData": "anndata.AnnData",
+    "mudata._core.mudata.MuData": "mudata.MuData",
     "numpy.random._generator.Generator": "numpy.random.Generator",
     "pandas.core.series.Series": "pandas.Series",
     "scipy.sparse._matrix.spmatrix": "scipy.sparse.spmatrix",
@@ -115,7 +114,11 @@ qualname_overrides = {
     "ipywidgets.widgets.widget_box.VBox": "ipywidgets.VBox",
 }
 nitpicky = True
-nitpick_ignore = []
+nitpick_ignore = [
+    ("py:class", "catboost.core.CatBoostRegressor"),
+    ("py:class", "catboost.core.CatBoostClassifier"),
+    ("py:class", "ipywidgets.VBox"),
+]
 scanpydoc_use_plots = True
 scanpydoc_default_config = {
     "api_url": "https://api.scanpy.org/api",
