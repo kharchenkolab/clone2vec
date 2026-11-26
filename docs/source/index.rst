@@ -40,7 +40,8 @@ The latest development version can be installed from GitHub using:
    :maxdepth: 2
    :hidden:
 
-   basics
+   biological_intuitions
+   computational_intuitions
    tutorial
    api
 

@@ -1,0 +1,2635 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>clone2vec walkthrough</title>
+  <script>if (window.parent !== window) document.documentElement.classList.add('embedded');</script>
+  <style>
+    /* Built to sit inside the clone2vec docs (Sphinx, scanpydoc / sphinx-book-theme) as an iframe.
+   When embedded, the host page sends its theme (light/dark) and pydata-sphinx-theme colors and fonts;
+   this page sends back its height so the iframe never scrolls on its own. Opened directly, it falls back
+   to the defaults below, which mirror pydata-sphinx-theme. */
+    :root {
+      --page: #ffffff;
+      --panel: #ffffff;
+      --fg: #222832;
+      --muted: #5d6676;
+      --line: #d1d5da;
+      --empty: #f3f4f5;
+      --accent: #0a7d91;
+      --accent-soft: #e3f1f3;
+      --cell: #c6c9d0;
+      --cell-dot: #b4b8c1;
+      --edge: #8a8f99;
+      --stroke: #1b1e25;
+      --f-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      --f-mono: SFMono-Regular, Menlo, Consolas, Monaco, "Liberation Mono", "Lucida Console", monospace;
+      color-scheme: light;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --page: #14181e;
+        --panel: #1e2124;
+        --fg: #ced6dd;
+        --muted: #9ca4af;
+        --line: #48566b;
+        --empty: #29313d;
+        --accent: #3fb1c5;
+        --accent-soft: #1f3a40;
+        --cell: #3a3f4a;
+        --cell-dot: #4a505c;
+        --edge: #6c727e;
+        --stroke: #0a0b0e;
+        color-scheme: dark
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --page: #14181e;
+      --panel: #1e2124;
+      --fg: #ced6dd;
+      --muted: #9ca4af;
+      --line: #48566b;
+      --empty: #29313d;
+      --accent: #3fb1c5;
+      --accent-soft: #1f3a40;
+      --cell: #3a3f4a;
+      --cell-dot: #4a505c;
+      --edge: #6c727e;
+      --stroke: #0a0b0e;
+      color-scheme: dark
+    }
+
+    @supports (color:color-mix(in srgb, red, blue)) {
+      :root {
+        --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--panel))
+      }
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html {
+      background: var(--page)
+    }
+
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--fg);
+      font-family: var(--f-sans);
+      font-size: 15px;
+      line-height: 1.55;
+      padding: 24px max(16px, env(safe-area-inset-right, 0px)) 40px max(16px, env(safe-area-inset-left, 0px))
+    }
+
+    html.embedded body {
+      padding: 3px
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px
+    }
+
+    html.embedded .wrap {
+      max-width: none
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      margin: 0;
+      text-wrap: balance;
+      font-weight: 600;
+      line-height: 1.25
+    }
+
+    .standalone {
+      display: grid;
+      gap: 6px
+    }
+
+    html.embedded .standalone {
+      display: none
+    }
+
+    .standalone h1 {
+      font-size: 2rem;
+      font-weight: 600
+    }
+
+    .lede {
+      margin: 0;
+      color: var(--muted);
+      max-width: 72ch
+    }
+
+    .steps {
+      display: flex;
+      gap: 2px;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--line)
+    }
+
+    .steps button {
+      all: unset;
+      cursor: pointer;
+      display: flex;
+      gap: 7px;
+      align-items: baseline;
+      padding: 8px 10px 9px;
+      white-space: nowrap;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      font-weight: 500;
+      font-size: 14px
+    }
+
+    .steps button .n {
+      font-family: var(--f-mono);
+      font-size: 12px
+    }
+
+    .steps button:hover {
+      color: var(--fg)
+    }
+
+    .steps button[aria-current="step"] {
+      color: var(--fg);
+      border-bottom-color: var(--accent);
+      font-weight: 600
+    }
+
+    .steps button:focus-visible,
+    button:focus-visible,
+    input:focus-visible,
+    summary:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px
+    }
+
+    .work {
+      display: grid;
+      grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
+      gap: 16px;
+      align-items: start
+    }
+
+    @media (max-width:699px) {
+      .work {
+        grid-template-columns: minmax(0, 1fr)
+      }
+
+      #stage {
+        max-width: 520px;
+        margin: 0 auto
+      }
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px
+    }
+
+    .stage {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      min-width: 0
+    }
+
+    .stage-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    .stage-head h2 {
+      font-size: 15px
+    }
+
+    .meta {
+      font-family: var(--f-mono);
+      font-size: 12px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums
+    }
+
+    #stage {
+      width: 100%;
+      max-width: 100%;
+      aspect-ratio: 1;
+      display: block;
+      touch-action: manipulation
+    }
+
+    .foot {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      font-size: 13px;
+      color: var(--muted);
+      align-items: center
+    }
+
+    #loss {
+      width: 100%;
+      height: 84px;
+      display: block
+    }
+
+    .panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+      min-width: 0
+    }
+
+    .panel>* {
+      min-width: 0
+    }
+
+    .prose {
+      padding: 14px 16px;
+      display: grid;
+      gap: 9px
+    }
+
+    .prose p {
+      margin: 0;
+      max-width: 66ch
+    }
+
+    .eyebrow {
+      font-family: var(--f-mono);
+      font-size: 11.5px;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      color: var(--accent)
+    }
+
+    .prose h3 {
+      font-size: 1.15rem
+    }
+
+    .muted {
+      color: var(--muted)
+    }
+
+    .small {
+      font-size: 13px
+    }
+
+    .mono {
+      font-family: var(--f-mono);
+      font-size: .9em
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      align-items: center;
+      padding: 10px 14px
+    }
+
+    .ctl {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      font-size: 14px;
+      flex-wrap: wrap
+    }
+
+    .ctl label {
+      color: var(--muted)
+    }
+
+    input[type=range] {
+      accent-color: var(--accent);
+      width: 140px;
+      min-width: 0
+    }
+
+    .btn {
+      font: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 5px 11px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--fg)
+    }
+
+    .btn:hover {
+      border-color: var(--accent)
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--panel)
+    }
+
+    .btn.sm {
+      font-size: 13px;
+      padding: 3px 9px
+    }
+
+    .seg {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      overflow: hidden;
+      flex-wrap: wrap
+    }
+
+    .seg button {
+      font: inherit;
+      font-size: 13px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 4px 10px;
+      cursor: pointer
+    }
+
+    .seg button[aria-pressed="true"] {
+      background: var(--accent-soft);
+      color: var(--fg);
+      font-weight: 600
+    }
+
+    .stat {
+      font-family: var(--f-mono);
+      font-size: 12.5px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums
+    }
+
+    .stat b {
+      color: var(--fg);
+      font-weight: 500
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 0 7px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: .92em;
+      line-height: 1.5
+    }
+
+    .sw {
+      display: inline-block;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      border: 1px solid var(--stroke);
+      vertical-align: -1px;
+      flex: none
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 12px;
+      font-size: 13px
+    }
+
+    .legend span {
+      white-space: nowrap
+    }
+
+    .empty {
+      padding: 16px 18px;
+      color: var(--muted)
+    }
+
+    /* dataset editor */
+    .dataset summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      gap: 6px 14px;
+      align-items: baseline;
+      flex-wrap: wrap;
+      padding: 10px 14px
+    }
+
+    .dataset summary::-webkit-details-marker {
+      display: none
+    }
+
+    .dsum {
+      font-family: var(--f-mono);
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums
+    }
+
+    .dataset .edit {
+      margin-left: auto;
+      font-weight: 600;
+      color: var(--accent);
+      font-size: 14px
+    }
+
+    .dataset .edit::before {
+      content: "Edit dataset ▾"
+    }
+
+    .dataset[open] .edit::before {
+      content: "Close ▴"
+    }
+
+    .ds-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 20px;
+      padding: 14px;
+      border-top: 1px solid var(--line)
+    }
+
+    .ds-grid .ds-counts {
+      grid-row: span 2
+    }
+
+    @media (max-width:699px) {
+      .ds-grid {
+        grid-template-columns: minmax(0, 1fr)
+      }
+
+      .ds-grid .ds-counts {
+        grid-row: auto
+      }
+    }
+
+    .ds-col {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      min-width: 0
+    }
+
+    .ds-col h4 {
+      font-size: 14px
+    }
+
+    .shape-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
+      gap: 4px 14px
+    }
+
+    .shape-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px
+    }
+
+    .sicon {
+      width: 26px;
+      height: 26px;
+      flex: none
+    }
+
+    .stepper {
+      margin-left: auto;
+      display: flex;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      overflow: hidden;
+      flex: none
+    }
+
+    .stepper button {
+      width: 26px;
+      border: 0;
+      background: transparent;
+      color: var(--fg);
+      cursor: pointer;
+      font: inherit;
+      font-size: 15px;
+      line-height: 1
+    }
+
+    .stepper button:hover {
+      background: var(--accent-soft)
+    }
+
+    .stepper input {
+      width: 38px;
+      border: 0;
+      border-left: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      text-align: center;
+      background: var(--panel);
+      color: var(--fg);
+      font: inherit;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      -moz-appearance: textfield;
+      appearance: textfield
+    }
+
+    .stepper input::-webkit-inner-spin-button,
+    .stepper input::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0
+    }
+
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px
+    }
+
+    .prm {
+      display: grid;
+      grid-template-columns: 80px minmax(0, 1fr) 46px;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px
+    }
+
+    .prm label {
+      color: var(--muted)
+    }
+
+    .prm input[type=range] {
+      width: 100%
+    }
+
+    .prm output {
+      font-family: var(--f-mono);
+      text-align: right;
+      font-variant-numeric: tabular-nums
+    }
+
+    .law {
+      font-family: var(--f-mono);
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    #hist {
+      width: 100%;
+      height: 100px;
+      display: block
+    }
+
+    .formula {
+      font-family: var(--f-mono);
+      font-size: 15px;
+      padding: 10px 14px;
+      border: 2px solid var(--accent);
+      border-radius: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center
+    }
+
+    .formula .pill {
+      font-family: var(--f-sans)
+    }
+
+    .tbl-wrap {
+      overflow-x: auto;
+      padding: 6px
+    }
+
+    table.cm {
+      border-collapse: collapse;
+      font-variant-numeric: tabular-nums;
+      font-size: 13px;
+      margin: 0 auto
+    }
+
+    table.cm th,
+    table.cm td {
+      border: 1px solid var(--fg);
+      text-align: center
+    }
+
+    table.cm th.corner {
+      border-top-color: transparent;
+      border-left-color: transparent
+    }
+
+    table.cm th.colh {
+      height: 70px;
+      vertical-align: bottom;
+      padding: 4px 0;
+      cursor: pointer;
+      font-weight: 700
+    }
+
+    table.cm th.colh span {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      display: inline-block;
+      white-space: nowrap
+    }
+
+    table.cm th.rowh {
+      text-align: right;
+      padding: 0 8px;
+      font-weight: 700;
+      white-space: nowrap;
+      cursor: pointer;
+      min-width: 66px
+    }
+
+    table.cm td {
+      min-width: 31px;
+      height: 31px;
+      cursor: pointer;
+      padding: 0 2px
+    }
+
+    table.cm td.sel {
+      outline: 3px solid var(--accent);
+      outline-offset: -3px
+    }
+
+    table.cm tr.focus th.rowh {
+      box-shadow: inset -4px 0 0 var(--fg)
+    }
+
+    .heatbox {
+      padding: 10px;
+      display: grid;
+      justify-items: center
+    }
+
+    #heat {
+      width: 100%;
+      max-width: 520px;
+      aspect-ratio: 1;
+      display: block;
+      cursor: crosshair
+    }
+
+    .mx {
+      display: grid;
+      gap: 2px;
+      font-variant-numeric: tabular-nums
+    }
+
+    .mx .lab {
+      font-family: var(--f-mono);
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      padding-right: 4px;
+      cursor: pointer;
+      white-space: nowrap
+    }
+
+    .mx .lab.sel {
+      color: var(--fg);
+      font-weight: 500
+    }
+
+    .mx .hc {
+      height: var(--ch, 22px);
+      border-radius: 2px;
+      cursor: pointer
+    }
+
+    .mx.compact .hc {
+      border-radius: 0
+    }
+
+    .mx .hc.sel {
+      outline: 2px solid var(--fg);
+      outline-offset: -1px
+    }
+
+    .mx .top {
+      font-family: var(--f-mono);
+      font-size: 10px;
+      color: var(--muted);
+      text-align: center;
+      align-self: end
+    }
+
+    .mx .band {
+      height: 6px
+    }
+
+    .glmrow {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 12px 14px;
+      overflow-x: auto
+    }
+
+    .glmrow.stack {
+      flex-direction: column;
+      align-items: flex-start
+    }
+
+    .glmrow .op {
+      font-size: 20px;
+      color: var(--muted)
+    }
+
+    .mxname {
+      font-family: var(--f-mono);
+      font-weight: 500;
+      font-size: 14px;
+      margin-bottom: 4px
+    }
+
+    .strips {
+      display: grid;
+      gap: 4px;
+      padding: 12px 14px;
+      overflow-x: auto
+    }
+
+    .strip {
+      display: grid;
+      gap: 2px;
+      align-items: center
+    }
+
+    .strip.compact {
+      gap: 0 0
+    }
+
+    .strip .name {
+      font-size: 12.5px;
+      color: var(--muted);
+      padding-right: 6px
+    }
+
+    .strip .v {
+      height: 28px;
+      border-radius: 2px;
+      font-family: var(--f-mono);
+      font-size: 10.5px;
+      display: flex;
+      align-items: center;
+      justify-content: center
+    }
+
+    .strip.compact .v {
+      height: 20px;
+      border-radius: 0
+    }
+
+    .pc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+      gap: 16px;
+      padding: 0 14px 16px
+    }
+
+    .bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 86px;
+      border-bottom: 1px solid var(--line);
+      margin-top: 6px
+    }
+
+    .bars.sym {
+      position: relative;
+      align-items: stretch
+    }
+
+    .bars .bar {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      position: relative;
+      height: 100%;
+      min-width: 0
+    }
+
+    .bars .bar i {
+      display: block;
+      width: 100%;
+      background: var(--accent);
+      border-radius: 2px 2px 0 0
+    }
+
+    .bars.sym .bar i {
+      position: absolute;
+      bottom: 50%;
+      border-radius: 2px
+    }
+
+    .bars.sym .bar i.neg {
+      bottom: auto;
+      top: 50%;
+      background: var(--muted)
+    }
+
+    .bars.sym::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      border-top: 1px dashed var(--line)
+    }
+
+    .bars .bar span {
+      position: absolute;
+      bottom: -17px;
+      font-family: var(--f-mono);
+      font-size: 10px;
+      color: var(--muted)
+    }
+
+    .strip .arrow {
+      grid-column: 2/-1;
+      font-size: 12px;
+      color: var(--muted);
+      font-style: italic;
+      padding-left: 4px
+    }
+
+    .inset-card {
+      display: grid;
+      grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+      padding: 12px 14px
+    }
+
+    #inset {
+      width: 100%;
+      max-width: 100%;
+      aspect-ratio: 1;
+      display: block
+    }
+
+    #stage.lasso {
+      touch-action: none;
+      cursor: crosshair
+    }
+
+    #heat {
+      touch-action: none
+    }
+
+    .edist summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      gap: 6px 14px;
+      align-items: baseline;
+      flex-wrap: wrap;
+      padding: 10px 14px
+    }
+
+    .edist summary::-webkit-details-marker {
+      display: none
+    }
+
+    .edist .edit {
+      margin-left: auto;
+      font-weight: 600;
+      color: var(--accent);
+      font-size: 14px
+    }
+
+    .edist .edit::before {
+      content: "Show ▾"
+    }
+
+    .edist[open] .edit::before {
+      content: "Hide ▴"
+    }
+
+    .ed-body {
+      border-top: 1px solid var(--line);
+      padding: 14px;
+      display: grid;
+      gap: 14px
+    }
+
+    .ed-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 20px;
+      align-items: start
+    }
+
+    .ed-cells {
+      grid-column: 1/-1;
+      grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+      align-items: center;
+      border-top: 1px solid var(--line);
+      padding-top: 14px
+    }
+
+    .ed-cells .ed-head {
+      grid-column: 1/-1
+    }
+
+    @media (max-width:599px) {
+      .ed-grid {
+        grid-template-columns: minmax(0, 1fr)
+      }
+
+      .ed-cells {
+        grid-template-columns: minmax(0, 1fr)
+      }
+    }
+
+    .ed-col {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      min-width: 0
+    }
+
+    .ed-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    .ed-head h3 {
+      font-size: 15px
+    }
+
+    .sec-head {
+      display: grid;
+      gap: 4px;
+      padding-top: 12px
+    }
+
+    .sec-head h2 {
+      font-size: 1.35rem
+    }
+
+    .sec-head p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 80ch
+    }
+
+    .sim {
+      padding: 16px;
+      display: grid;
+      gap: 18px
+    }
+
+    .sim-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 22px;
+      align-items: start
+    }
+
+    @media (max-width:649px) {
+      .sim-grid {
+        grid-template-columns: minmax(0, 1fr)
+      }
+    }
+
+    .sim-view {
+      display: grid;
+      gap: 10px;
+      justify-items: center
+    }
+
+    #simCanvas {
+      width: 100%;
+      max-width: 520px;
+      aspect-ratio: 1;
+      display: block;
+      cursor: crosshair
+    }
+
+    .sim-side {
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+      align-content: start
+    }
+
+    .shape-cards {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px 10px
+    }
+
+    @media (max-width:519px) {
+      .shape-cards {
+        grid-template-columns: repeat(3, minmax(0, 1fr))
+      }
+    }
+
+    .shape-card {
+      font: inherit;
+      background: none;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 4px;
+      cursor: pointer;
+      display: grid;
+      gap: 2px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.3;
+      font-variant-numeric: tabular-nums
+    }
+
+    .shape-card canvas {
+      width: 100%;
+      aspect-ratio: 1;
+      display: block;
+      max-width: 104px;
+      margin: 0 auto
+    }
+
+    .shape-card b {
+      color: var(--fg);
+      font-weight: 600
+    }
+
+    .shape-card.none {
+      opacity: .3
+    }
+
+    .shape-card[aria-pressed="true"] {
+      border-color: var(--accent);
+      background: var(--accent-soft)
+    }
+
+    .shape-card:hover {
+      border-color: var(--line)
+    }
+
+    #simHist {
+      width: 100%;
+      height: 92px;
+      display: block
+    }
+
+    .preset-seg button {
+      font-size: 13px;
+      padding: 5px 11px
+    }
+
+    #edHeat,
+    #edTsne,
+    #edInset {
+      width: 100%;
+      max-width: 100%;
+      aspect-ratio: 1;
+      display: block
+    }
+
+    #edHeat {
+      touch-action: none;
+      cursor: crosshair
+    }
+
+    .cbar-wrap {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+      gap: 8px 18px;
+      width: 100%
+    }
+
+    .cbar {
+      grid-column: 1/-1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--f-mono);
+      font-size: 12px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      flex-wrap: wrap
+    }
+
+    .cbar i {
+      flex: 1;
+      min-width: 120px;
+      height: 10px;
+      border-radius: 2px
+    }
+
+    .thumbs {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      padding: 12px 14px
+    }
+
+    @media (max-width:519px) {
+      .thumbs {
+        grid-template-columns: repeat(3, minmax(0, 1fr))
+      }
+
+      .inset-card {
+        grid-template-columns: minmax(0, 1fr)
+      }
+    }
+
+    .thumb {
+      display: grid;
+      gap: 2px;
+      cursor: pointer;
+      border-radius: 6px;
+      padding: 4px;
+      border: 1px solid transparent;
+      background: none;
+      font: inherit;
+      color: inherit;
+      text-align: center
+    }
+
+    .thumb canvas {
+      width: 100%;
+      aspect-ratio: 1;
+      display: block;
+      max-width: 100%
+    }
+
+    .thumb span {
+      font-size: 11.5px;
+      line-height: 1.3;
+      color: var(--muted)
+    }
+
+    .thumb.none {
+      opacity: .4
+    }
+
+    .thumb[aria-pressed="true"] {
+      border-color: var(--accent);
+      background: var(--accent-soft)
+    }
+
+    .thumb[aria-pressed="true"] span {
+      color: var(--fg)
+    }
+
+    .pager {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    .pager .btn[disabled] {
+      opacity: .35;
+      cursor: default
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        transition: none !important
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header class="standalone">
+      <h1>clone2vec: an interactive walkthrough</h1>
+      <p class="lede">Describe each clone by which clones its cells sit next to in expression space, then compress those
+        neighbor profiles with a multinomial GLM-PCA. Every step below runs live in your browser on simulated data you
+        can edit.</p>
+    </header>
+    <section class="sec-head">
+      <div class="eyebrow">Part 1</div>
+      <h2>A simulated lineage-tracing experiment</h2>
+    </section>
+    <section class="card sim" id="sim">
+      <div class="sim-grid">
+        <div class="sim-view">
+          <div class="ctl"><label>Color by</label>
+            <div class="seg" id="simColorSeg"><button data-v="shape" aria-pressed="true">shape</button><button
+                data-v="clone" aria-pressed="false">clone</button></div>
+          </div>
+          <canvas id="simCanvas"
+            aria-label="All barcoded cells in expression space. Hover a cell to highlight its clone, click to pin it."></canvas>
+          <div class="stat" id="simInfo" style="min-height:1.6em;text-align:center">Hover a cell to highlight its clone
+            · click to pin it</div>
+        </div>
+        <div class="sim-side">
+          <p style="margin:0">Each dot is a cell in a 2D stand-in for expression space; gray cells carry no barcode.
+            Every clone is a set of barcoded cells drawn from one of ten hidden <b>shapes</b>: a core, three rings, and
+            six crosses rotated in 15° steps. A good clone representation should put clones of the same shape together
+            without being told the shapes.</p>
+          <div class="ctl"><label>Example</label>
+            <div class="seg preset-seg" id="simPresets"></div>
+          </div>
+          <div class="dsum" id="simStats"></div>
+          <div>
+            <div class="eyebrow" style="margin-bottom:4px">Clone sizes · click a bar to show a clone of that size</div>
+            <canvas id="simHist" aria-label="Histogram of clone sizes"></canvas>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="eyebrow" style="margin-bottom:6px">Hidden shapes · click to highlight, Shift adds</div>
+        <div class="shape-cards" id="simShapes"></div>
+      </div>
+    </section>
+    <div id="dataset"></div>
+    <section class="sec-head">
+      <div class="eyebrow">Part 2 · Baseline</div>
+      <h2>Compare clones directly: E-distance</h2>
+    </section>
+    <details class="card edist" id="edBox" open>
+      <summary><span class="eyebrow">E-distance</span><span class="dsum">between every pair of clones</span><span
+          class="dsum muted" id="edSum"></span><span class="edit"></span></summary>
+      <div class="ed-body">
+        <p class="small" style="margin:0;max-width:90ch">Before clone2vec, the direct way to compare two clones is the
+          energy distance between their cell distributions in expression space: <span class="mono">E(A,B) = 2·mean‖a−b‖
+            − mean‖a−a′‖ − mean‖b−b′‖</span>. It is zero when the two clones are drawn from the same distribution. It
+          needs no neighbor graph, but it only sees overlap of cells: two clones that sit in the same structure without
+          sharing positions still look far apart, and small clones give noisy estimates.</p>
+        <div class="ed-grid">
+          <div class="ed-col">
+            <div class="ed-head">
+              <h3>E-distance matrix</h3><span class="meta" id="edMeta"></span>
+            </div>
+            <div class="controls" style="padding:0;gap:8px 10px">
+              <button class="btn sm primary" id="edCluster">Perform hierarchical clustering</button><button
+                class="btn sm" id="edUncluster" disabled>Order by shape</button>
+              <button class="btn sm" id="edZoomOut" disabled>Zoom out</button>
+            </div>
+            <canvas id="edHeat"
+              aria-label="E-distance heatmap. Drag to zoom, click a cell to highlight that pair."></canvas>
+            <div class="stat" id="edInfo" style="min-height:1.6em">Drag a rectangle to zoom in · click a cell to select
+              that pair in the t-SNE</div>
+            <div id="edCbar"></div>
+          </div>
+          <div class="ed-col">
+            <div class="ed-head">
+              <h3>t-SNE of E-distances</h3><span class="meta" id="edTsMeta"></span>
+            </div>
+            <canvas id="edTsne" aria-label="t-SNE of clones computed from E-distances"></canvas>
+            <div class="stat" id="edStatus"></div>
+            <div class="legend" id="edLegend"></div>
+          </div>
+          <div class="ed-col ed-cells">
+            <div class="ed-head">
+              <h3>Cells of selected clones</h3>
+            </div>
+            <canvas id="edInset" aria-label="Cells of the selected clones in expression space"></canvas>
+            <div id="edInsetInfo" style="display:grid;gap:8px;align-content:start"></div>
+          </div>
+        </div>
+      </div>
+    </details>
+    <section class="sec-head">
+      <div class="eyebrow">Part 3</div>
+      <h2>clone2vec: describe clones by who they co-occur with</h2>
+      <p>Build a kNN graph on barcoded cells, count which clones neighbor each clone, then reduce that clone × clone
+        matrix: first with PCA, then with the multinomial GLM-PCA that clone2vec uses.</p>
+    </section>
+    <nav class="steps" id="steps" aria-label="Pipeline steps"></nav>
+    <main class="work">
+      <section class="stage card">
+        <div class="stage-head">
+          <h2 id="stageTitle"></h2><span id="stageMeta" class="meta"></span>
+        </div>
+        <canvas id="stage" aria-label="Visualization of the current step"></canvas>
+        <div id="stageFoot" class="foot"></div>
+      </section>
+      <section class="panel" id="panel"></section>
+    </main>
+    <footer class="pager"><button class="btn" id="prev"></button><button class="btn primary" id="next"></button>
+    </footer>
+  </div>
+
+  <script>
+    /* ---------------- constants ---------------- */
+    const SET_COLORS = ['#1f6db0', '#ff7f0e', '#22975a', '#d62728', '#9b30ff', '#a8c4e6', '#ffb470', '#90d97f', '#ff8f8c', '#bba4d0'];
+    const TAB20 = ['#1f77b4', '#aec7e8', '#ff7f0e', '#ffbb78', '#2ca02c', '#98df8a', '#d62728', '#ff9896', '#9467bd', '#c5b0d5', '#8c564b', '#c49c94', '#e377c2', '#f7b6d2', '#7f7f7f', '#c7c7c7', '#bcbd22', '#dbdb8d', '#17becf', '#9edae5'];
+    const TYPE_COLORS = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'];
+    const TYPES = [
+      { name: 'Core', kind: 'ring', r0: 0, r1: 0.2 },
+      { name: 'Inner ring', kind: 'ring', r0: 0.3, r1: 0.45 },
+      { name: 'Middle ring', kind: 'ring', r0: 0.55, r1: 0.7 },
+      { name: 'Outer ring', kind: 'ring', r0: 0.82, r1: 0.98 },
+      { name: 'Cross 0°', kind: 'cross', a: 0 },
+      { name: 'Cross 15°', kind: 'cross', a: 15 },
+      { name: 'Cross 30°', kind: 'cross', a: 30 },
+      { name: 'Cross 45°', kind: 'cross', a: 45 },
+      { name: 'Cross 60°', kind: 'cross', a: 60 },
+      { name: 'Cross 75°', kind: 'cross', a: 75 }];
+    const STEPS = [
+      { key: 'graph', label: 'kNN graph' },
+      { key: 'counts', label: 'Neighbor counts' },
+      { key: 'reduce', label: 'PCA or GLM-PCA' },
+      { key: 'embed', label: 't-SNE embedding' }];
+    const isEmbStep = k => k === 'embed';
+    const embKey = () => S.method;
+    const METHODS = { pca: 'PCA on log1p(CPMedian)', glm: 'GLM-PCA (clone2vec)' };
+    function methodSeg(id) { return `<div class="ctl"><label>Reduction</label><div class="seg" id="${id}">${Object.entries(METHODS).map(([k, v]) => `<button data-v="${k}" aria-pressed="${S.method === k}">${v}</button>`).join('')}</div></div>`; }
+    const MAX_PER_SHAPE = 60;
+    /* full dataset presets: counts + size distribution + subsampling */
+    const PRESETS = [
+      { label: 'Toy', note: '2 crosses × 5 clones, 30 cells each', ds: { counts: [0, 0, 0, 0, 5, 0, 0, 5, 0, 0], dist: 'fixed', size: 30, keep: 100 } },
+      { label: 'Very easy', note: 'all shapes × 20, 100 cells each', ds: { counts: Array(10).fill(20), dist: 'fixed', size: 100, keep: 100 } },
+      { label: 'Easy', note: 'all shapes × 20, 30 cells each', ds: { counts: Array(10).fill(20), dist: 'fixed', size: 30, keep: 100 } },
+      { label: 'Hard', note: 'all shapes × 20, Zipf sizes (a 2.5, 5–100)', ds: { counts: Array(10).fill(20), dist: 'zipf', a: 2.5, min: 5, max: 100, keep: 100 } },
+      { label: 'Very hard', note: 'all shapes × 20, Zipf sizes (a 2.5, 2–80)', ds: { counts: Array(10).fill(20), dist: 'zipf', a: 2.5, min: 2, max: 80, keep: 100 } },
+      { label: 'Extreme', note: 'all shapes × 20; half the clones have 2–4 cells, the other half 60–120', ds: { counts: Array(10).fill(20), dist: 'bimodal', frac: 50, smin: 2, smax: 4, lmin: 60, lmax: 120, keep: 100 } }];
+    function applyPreset(i) { const P = PRESETS[i].ds; Object.assign(S.ds, DISTS[P.dist].def, P, { counts: [...P.counts] }); S.preset = i; }
+    function loadPreset(i) { applyPreset(i); buildData(); S.run++; renderDataset(); render(); restartJobs(); }
+    const DISTS = {
+      fixed: { label: 'Fixed', def: { size: 30 }, law: 'n = size for every clone' },
+      uniform: { label: 'Uniform', def: { min: 24, max: 34 }, law: 'P(n) = 1/(max−min+1)' },
+      poisson: { label: 'Poisson', def: { lambda: 30, min: 5, max: 300 }, law: 'n ~ Poisson(λ), truncated to [min, max]' },
+      geometric: { label: 'Geometric', def: { mean: 30, min: 5, max: 300 }, law: 'P(n) ∝ (1−p)^(n−min),  p = 1/(mean−min+1)' },
+      zipf: { label: 'Zipf', def: { a: 1.8, min: 5, max: 300 }, law: 'P(n) ∝ n^(−a),  min ≤ n ≤ max' },
+      bimodal: { label: 'Tiny + large', def: { frac: 50, smin: 2, smax: 4, lmin: 60, lmax: 120 }, law: 'tiny % of clones: n ~ U[tiny min, tiny max]; the rest: n ~ U[large min, large max]' }
+    };
+    const BG_N = 10000;
+    const PARAMS = {
+      frac: { label: 'tiny %', min: 0, max: 95, step: 5 }, smin: { label: 'tiny min', min: 1, max: 20, step: 1 }, smax: { label: 'tiny max', min: 1, max: 30, step: 1 }, lmin: { label: 'large min', min: 10, max: 300, step: 5 }, lmax: { label: 'large max', min: 10, max: 400, step: 5 }, size: { label: 'size', min: 1, max: 300, step: 1 }, keep: { label: 'keep cells', min: 5, max: 100, step: 5 }, a: { label: 'Zipf a', min: 1, max: 3.5, step: 0.1 }, mean: { label: 'mean', min: 2, max: 200, step: 1 }, lambda: { label: 'λ', min: 2, max: 150, step: 1 },
+      min: { label: 'min size', min: 1, max: 100, step: 1 }, max: { label: 'max size', min: 2, max: 500, step: 1 }
+    };
+
+    const TARGET_C = '#ff7f0e', NEIGH_C = '#1f6db0';
+    const S = {
+      embs: { pca: null, glm: null }, pcaK: 10, preset: 0, step: 0, seed: 11, k: 5, focus: 1, col: 0, frac: false, glmK: 6, method: 'glm', pca: null, simColor: 'shape', simShapes: new Set(), simHover: null, simPin: null, sel: 1, run: 0, refits: 0, zoom: null, zoomStack: [], hc: null, linkage: 'average', vlim: { counts: null, frac: null }, heatDrag: null,
+      data: null, glm: null, emb: null, hover: 0, selClones: new Set(), lasso: null, hits: null, status: '', dsOpen: false,
+      ds: { counts: [...PRESETS[0].ds.counts], dist: 'fixed', size: 30, a: 1.8, mean: 30, lambda: 30, min: 24, max: 34, frac: 50, smin: 2, smax: 4, lmin: 60, lmax: 120, keep: 100 }
+    };
+
+    Object.defineProperty(S, 'emb', { get() { return S.embs[embKey()]; }, set(v) { S.embs[embKey()] = v; } });
+    const $ = s => document.querySelector(s);
+    const tick = (ms = 0) => new Promise(r => setTimeout(r, ms));
+    const fmtN = n => n.toLocaleString('en-US');
+    /* canvas fonts follow the docs theme fonts (CSS variables --f-sans / --f-mono) */
+    const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+    const FS = () => cssVar('--f-sans') || 'sans-serif';
+    const FM = () => cssVar('--f-mono') || 'monospace';
+
+    /* ---------------- random + simulation ---------------- */
+    function rng(seed) { let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+    function hash(...v) { let h = 2166136261; for (const x of v) { h ^= x | 0; h = Math.imul(h, 16777619); h ^= h >>> 13; } return h >>> 0; }
+    function gauss(R) { let u = 0; while (u === 0) u = R(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * R()); }
+    function genBg(R, n) {
+      const xs = new Float64Array(n), ys = new Float64Array(n);
+      for (let i = 0; i < n; i++) { const r = Math.pow(R(), 0.75), t = R() * 2 * Math.PI; xs[i] = r * Math.cos(t); ys[i] = r * Math.sin(t); } return { xs, ys, n };
+    }
+    function samplePattern(R, p) {
+      if (R() < 0.03) { const r = Math.sqrt(R()) * 0.97, t = R() * 2 * Math.PI; return [r * Math.cos(t), r * Math.sin(t)]; }
+      if (p.kind === 'ring') { const r = Math.sqrt(p.r0 * p.r0 + (p.r1 * p.r1 - p.r0 * p.r0) * R()), t = R() * 2 * Math.PI; return [r * Math.cos(t), r * Math.sin(t)]; }
+      const arm = Math.floor(R() * 4), th = p.a * Math.PI / 180 + arm * Math.PI / 2, s = 0.03 + 0.94 * R(), j = gauss(R) * 0.035;
+      let x = s * Math.cos(th) - j * Math.sin(th), y = s * Math.sin(th) + j * Math.cos(th);
+      const r = Math.hypot(x, y); if (r > 0.99) { x *= 0.99 / r; y *= 0.99 / r; } return [x, y];
+    }
+    function poisson(R, l) { if (l < 40) { const L = Math.exp(-l); let k = 0, p = 1; do { k++; p *= R(); } while (p > L); return k - 1; } return Math.max(0, Math.round(l + Math.sqrt(l) * gauss(R))); }
+    function sizeSampler(ds) {
+      if (ds.dist === 'fixed') { const n = Math.max(1, Math.round(ds.size)); return () => n; }
+      if (ds.dist === 'bimodal') {
+        const s0 = Math.max(1, Math.round(ds.smin)), s1 = Math.max(s0, Math.round(ds.smax)), l0 = Math.max(1, Math.round(ds.lmin)), l1 = Math.max(l0, Math.round(ds.lmax)), q = ds.frac / 100;
+        return R => R() < q ? s0 + Math.floor(R() * (s1 - s0 + 1)) : l0 + Math.floor(R() * (l1 - l0 + 1));
+      }
+      const lo = Math.max(1, Math.round(ds.min)), hi = Math.max(lo, Math.round(ds.max));
+      if (ds.dist === 'uniform') return R => lo + Math.floor(R() * (hi - lo + 1));
+      if (ds.dist === 'zipf') {
+        const cdf = []; let s = 0; for (let n = lo; n <= hi; n++) { s += Math.pow(n, -ds.a); cdf.push(s); }
+        return R => { const u = R() * s; let a = 0, b = cdf.length - 1; while (a < b) { const m = (a + b) >> 1; if (cdf[m] < u) a = m + 1; else b = m; } return lo + a; };
+      }
+      if (ds.dist === 'geometric') {
+        if (ds.mean <= lo) return () => lo; const p = 1 / (ds.mean - lo + 1);
+        return R => { for (let t = 0; t < 200; t++) { const n = lo + Math.floor(Math.log(1 - R()) / Math.log(1 - p)); if (n <= hi) return n; } return hi; };
+      }
+      return R => { for (let t = 0; t < 200; t++) { const n = poisson(R, ds.lambda); if (n >= lo && n <= hi) return n; } return Math.min(hi, Math.max(lo, Math.round(ds.lambda))); };
+    }
+    function buildData() { S.data = genData(S.ds, S.seed); S.simShapes = new Set(); S.simPin = null; S.simHover = null; S.simBin = null; rebuildGraph(); edReset(); renderSim(); }
+    function genData(ds, seed) {
+      const bg = genBg(rng(hash(seed, 1)), BG_N), samp = sizeSampler(ds), keep = ds.keep / 100, xs = [], ys = [], lab = [], ctype = [], start = [0], sizes = [], fullSizes = [];
+      for (let t = 0; t < 10; t++)for (let j = 0; j < ds.counts[t]; j++) {
+        const id = ctype.length; ctype.push(t); const n = samp(rng(hash(seed, 2, t, j))), Rp = rng(hash(seed, 3, t, j)), Rk = rng(hash(seed, 4, t, j));
+        // "make sparser": each cell of the full clone is captured with probability keep (at least one cell kept)
+        let kept = 0; const pts = [];
+        for (let q = 0; q < n; q++) { const p = samplePattern(Rp, TYPES[t]); if (keep >= 1 || Rk() < keep) { pts.push(p); kept++; } else pts.push(null); }
+        if (!kept) pts[0] = pts[0] || samplePattern(Rp, TYPES[t]);
+        for (const p of pts) if (p) { xs.push(p[0]); ys.push(p[1]); lab.push(id); }
+        fullSizes.push(n); sizes.push(xs.length - start[start.length - 1]); start.push(xs.length);
+      }
+      return { bg, xs: Float64Array.from(xs), ys: Float64Array.from(ys), lab: Int32Array.from(lab), ctype, start, sizes, fullSizes, m: ctype.length, n: xs.length };
+    }
+    function rebuildGraph() {
+      const D = S.data; D.k = Math.max(1, Math.min(S.k, D.n - 1));
+      if (D.n >= 2) { D.nbr = knn(D.xs, D.ys, D.k); D.M = countMatrix(D.lab, D.nbr, D.k, D.m); }
+      else { D.nbr = new Int32Array(0); D.M = Array.from({ length: D.m }, () => new Float64Array(D.m)); }
+      S.glm = null; S.pca = null; S.embs = { pca: null, glm: null };
+      const cl = v => Math.max(0, Math.min(D.m - 1, v));
+      S.focus = cl(S.focus); S.col = S.col == null ? null : cl(S.col); S.sel = cl(S.sel); S.hover = cl(S.hover);
+      S.zoom = null; S.zoomStack = []; S.hc = null; S.selClones = new Set(); S.vlim = { counts: null, frac: null };
+    }
+
+    /* ---------------- core algorithms ---------------- */
+    function knn(xs, ys, k) {
+      const n = xs.length, out = new Int32Array(n * k), bd = new Float64Array(k), bj = new Int32Array(k);
+      for (let i = 0; i < n; i++) {
+        bd.fill(Infinity); bj.fill(-1); const xi = xs[i], yi = ys[i];
+        for (let j = 0; j < n; j++) {
+          if (j === i) continue; const dx = xs[j] - xi, dy = ys[j] - yi, d = dx * dx + dy * dy;
+          if (d < bd[k - 1]) { let m = k - 1; while (m > 0 && bd[m - 1] > d) { bd[m] = bd[m - 1]; bj[m] = bj[m - 1]; m--; } bd[m] = d; bj[m] = j; }
+        }
+        out.set(bj, i * k);
+      }
+      return out;
+    }
+    function countMatrix(lab, nbr, k, m) {
+      const M = Array.from({ length: m }, () => new Float64Array(m));
+      for (let i = 0; i < lab.length; i++) { const a = lab[i]; for (let t = 0; t < k; t++)M[a][lab[nbr[i * k + t]]]++; }
+      return M;
+    }
+    /* Multinomial GLM-PCA: X[i,:] ~ Multinomial(rowsum_i, softmax(C[i]·W + b)) */
+    function glmInit(X, k, seed) {
+      const n = X.length, p = X[0].length, R = rng(seed);
+      const C = new Float64Array(n * k).map(() => gauss(R) * 0.1), W = new Float64Array(k * p).map(() => gauss(R) * 0.1), b = new Float64Array(p);
+      const rs = new Float64Array(n), cs = new Float64Array(p); let tot = 0;
+      for (let i = 0; i < n; i++)for (let j = 0; j < p; j++) { rs[i] += X[i][j]; cs[j] += X[i][j]; tot += X[i][j]; }
+      for (let j = 0; j < p; j++)b[j] = Math.log((cs[j] + 0.5) / (tot + 0.5 * p));
+      const params = [C, W, b];
+      const g = { n, p, k, X, C, W, b, rs, tot, params, m: params.map(a => new Float64Array(a.length)), v: params.map(a => new Float64Array(a.length)), t: 0, losses: [] };
+      let mx = -Infinity; for (const v of b) mx = Math.max(mx, v); let z = 0; for (const v of b) z += Math.exp(v - mx); const lse = mx + Math.log(z);
+      let L0 = 0, Ls = 0;
+      for (let i = 0; i < n; i++)for (let j = 0; j < p; j++) { const x = X[i][j]; if (x > 0) { L0 -= x * (b[j] - lse); Ls -= x * Math.log(x / rs[i]); } }
+      g.L0 = L0 / tot; g.Ls = Ls / tot;
+      return g;
+    }
+    function glmRow(g, i) {
+      const { p, k, C, W, b } = g, logit = new Float64Array(p); let mx = -Infinity;
+      for (let j = 0; j < p; j++) { let s = b[j]; for (let a = 0; a < k; a++)s += C[i * k + a] * W[a * p + j]; logit[j] = s; if (s > mx) mx = s; }
+      const prob = new Float64Array(p); let z = 0; for (let j = 0; j < p; j++) { prob[j] = Math.exp(logit[j] - mx); z += prob[j]; }
+      for (let j = 0; j < p; j++)prob[j] /= z; return { logit, prob };
+    }
+    function glmStep(g, lr = 0.05, lam = 1e-3) {
+      const { n, p, k, X, C, W, rs, tot } = g, gC = new Float64Array(n * k), gW = new Float64Array(k * p), gb = new Float64Array(p); let loss = 0;
+      for (let i = 0; i < n; i++) {
+        const { prob } = glmRow(g, i), Xi = X[i];
+        for (let j = 0; j < p; j++) {
+          const x = Xi[j]; if (x > 0) loss -= x * Math.log(prob[j] + 1e-12);
+          const gij = (rs[i] * prob[j] - x) / tot; gb[j] += gij;
+          for (let a = 0; a < k; a++) { gC[i * k + a] += gij * W[a * p + j]; gW[a * p + j] += gij * C[i * k + a]; }
+        }
+      }
+      for (let q = 0; q < C.length; q++)gC[q] += lam * C[q];
+      for (let q = 0; q < W.length; q++)gW[q] += lam * W[q];
+      const grads = [gC, gW, gb], b1 = 0.9, b2 = 0.999; g.t++; const c1 = 1 - Math.pow(b1, g.t), c2 = 1 - Math.pow(b2, g.t);
+      for (let q = 0; q < 3; q++) {
+        const P = g.params[q], G = grads[q], m = g.m[q], v = g.v[q];
+        for (let i = 0; i < P.length; i++) { m[i] = b1 * m[i] + (1 - b1) * G[i]; v[i] = b2 * v[i] + (1 - b2) * G[i] * G[i]; P[i] -= lr * (m[i] / c1) / (Math.sqrt(v[i] / c2) + 1e-8); }
+      }
+      const l = loss / tot; g.losses.push(l); return l;
+    }
+    const explained = g => { const l = g.losses[g.losses.length - 1]; if (l === undefined || g.L0 - g.Ls < 1e-12) return 0; return (g.L0 - l) / (g.L0 - g.Ls); };
+    /* exact t-SNE (small n) */
+    function tsneInit(rows, perp, seed) {
+      const n = rows.length, d = rows[0].length, D = new Float64Array(n * n);
+      for (let i = 0; i < n; i++)for (let j = i + 1; j < n; j++) { let s = 0; for (let a = 0; a < d; a++) { const t = rows[i][a] - rows[j][a]; s += t * t; } D[i * n + j] = D[j * n + i] = s; }
+      return tsneFromD(D, n, perp, seed);
+    }
+    /* t-SNE from a precomputed n×n dissimilarity matrix (used as "squared distance" in the Gaussian kernel) */
+    function tsneFromD(D, n, perp, seed) {
+      const P = new Float64Array(n * n), H = Math.log(perp), row = new Float64Array(n);
+      for (let i = 0; i < n; i++) {
+        let beta = 1, lo = -Infinity, hi = Infinity;
+        for (let it = 0; it < 60; it++) {
+          let sum = 0, dp = 0; for (let j = 0; j < n; j++) { row[j] = j === i ? 0 : Math.exp(-D[i * n + j] * beta); sum += row[j]; dp += D[i * n + j] * row[j]; }
+          sum = Math.max(sum, 1e-300); const Hc = Math.log(sum) + beta * dp / sum;
+          if (Math.abs(Hc - H) < 1e-5) break;
+          if (Hc > H) { lo = beta; beta = hi === Infinity ? beta * 2 : (beta + hi) / 2; } else { hi = beta; beta = lo === -Infinity ? beta / 2 : (beta + lo) / 2; }
+        }
+        let sum = 0; for (let j = 0; j < n; j++)sum += row[j]; for (let j = 0; j < n; j++)P[i * n + j] = row[j] / Math.max(sum, 1e-300);
+      }
+      for (let i = 0; i < n; i++)for (let j = i + 1; j < n; j++) { const v = Math.max((P[i * n + j] + P[j * n + i]) / (2 * n), 1e-12); P[i * n + j] = P[j * n + i] = v; }
+      const R = rng(seed), Y = new Float64Array(2 * n).map(() => gauss(R) * 1e-2);
+      return { n, P, Y, iY: new Float64Array(2 * n), gains: new Float64Array(2 * n).fill(1), it: 0, lr: 100 };
+    }
+    function tsneStep(T) {
+      const { n, P, Y, iY, gains } = T, ex = T.it < 100 ? 8 : 1, mom = T.it < 150 ? 0.5 : 0.8, num = new Float64Array(n * n); let sQ = 0;
+      for (let i = 0; i < n; i++)for (let j = i + 1; j < n; j++) { const dx = Y[2 * i] - Y[2 * j], dy = Y[2 * i + 1] - Y[2 * j + 1], q = 1 / (1 + dx * dx + dy * dy); num[i * n + j] = num[j * n + i] = q; sQ += 2 * q; }
+      const G = new Float64Array(2 * n);
+      for (let i = 0; i < n; i++) {
+        let gx = 0, gy = 0;
+        for (let j = 0; j < n; j++) { if (j === i) continue; const q = num[i * n + j], m = (ex * P[i * n + j] - q / sQ) * q; gx += m * (Y[2 * i] - Y[2 * j]); gy += m * (Y[2 * i + 1] - Y[2 * j + 1]); }
+        G[2 * i] = 4 * gx; G[2 * i + 1] = 4 * gy;
+      }
+      let cx = 0, cy = 0;
+      for (let q = 0; q < 2 * n; q++) {
+        const g = G[q]; gains[q] = (Math.sign(g) !== Math.sign(iY[q])) ? gains[q] + 0.2 : Math.max(gains[q] * 0.8, 0.01);
+        iY[q] = mom * iY[q] - T.lr * gains[q] * g; Y[q] += iY[q];
+      }
+      for (let i = 0; i < n; i++) { cx += Y[2 * i]; cy += Y[2 * i + 1]; } cx /= n; cy /= n;
+      for (let i = 0; i < n; i++) { Y[2 * i] -= cx; Y[2 * i + 1] -= cy; }
+      T.it++;
+    }
+
+    /* ---------------- color + canvas helpers ---------------- */
+    const CW = [[59, 76, 192], [124, 159, 249], [221, 221, 221], [244, 154, 123], [180, 4, 38]];
+    function coolwarm(t) { t = Math.max(0, Math.min(1, isFinite(t) ? t : 0)); const s = t * 4, i = Math.min(3, Math.floor(s)), f = s - i, a = CW[i], b = CW[i + 1]; return [0, 1, 2].map(c => Math.round(a[c] + (b[c] - a[c]) * f)); }
+    const rgbCss = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+    const lum = c => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+    const inkOn = c => lum(c) < 150 ? '#ffffff' : '#15171c';
+    function hexRgb(h) { const v = parseInt(h.slice(1), 16); return [v >> 16 & 255, v >> 8 & 255, v & 255]; }
+    const perClone = () => S.data.m <= 20;
+    function cloneColor(i) { const D = S.data; if (D.m <= 10) return SET_COLORS[i]; if (D.m <= 20) return TAB20[i]; return TYPE_COLORS[D.ctype[i]]; }
+    function colors() {
+      const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue(n).trim();
+      return { panel: g('--panel'), fg: g('--fg'), muted: g('--muted'), line: g('--line'), accent: g('--accent'), cell: g('--cell'), cellDot: g('--cell-dot'), edge: g('--edge'), stroke: g('--stroke'), empty: g('--empty') };
+    }
+    function fitCanvas(cv) {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2), w = cv.clientWidth, h = cv.clientHeight || w;
+      const W = Math.max(1, Math.round(w * dpr)), H = Math.max(1, Math.round(h * dpr)); if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+      const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h); return { ctx, w, h };
+    }
+    function dot(ctx, x, y, r, fill, stroke, lw = 1) { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fillStyle = fill; ctx.fill(); if (stroke) { ctx.lineWidth = lw; ctx.strokeStyle = stroke; ctx.stroke(); } }
+    function pill(i, c = cloneColor(i)) { return `<span class="pill" style="background:${c};color:${inkOn(hexRgb(c))}">Clone ${i + 1}</span>`; }
+    function discMap(w, h, padFrac = 0.05) { const pad = w * padFrac, sc = (Math.min(w, h) - 2 * pad) / 2; return { X: x => w / 2 + x * sc, Y: y => h / 2 - y * sc, sc }; }
+    function drawBg(ctx, bg, M, color, size = 1.5, stride = 1) {
+      ctx.fillStyle = color; const hs = size / 2;
+      for (let i = 0; i < bg.n; i += stride)ctx.fillRect(M.X(bg.xs[i]) - hs, M.Y(bg.ys[i]) - hs, size, size);
+    }
+    function drawAxes(ctx, w, h, col, a, b) {
+      const x0 = 12, y0 = h - 12, L = Math.max(34, w * 0.08); ctx.strokeStyle = col.fg; ctx.fillStyle = col.fg; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + L, y0); ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 - L); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x0 + L + 6, y0); ctx.lineTo(x0 + L - 1, y0 - 3.5); ctx.lineTo(x0 + L - 1, y0 + 3.5); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x0, y0 - L - 6); ctx.lineTo(x0 - 3.5, y0 - L + 1); ctx.lineTo(x0 + 3.5, y0 - L + 1); ctx.fill();
+      ctx.font = 'italic 12px ' + FS();
+      ctx.save(); ctx.translate(x0 + 4, y0 - 20); ctx.rotate(-Math.PI / 2); ctx.textBaseline = 'top'; ctx.fillText(b, 0, 0); ctx.restore();
+      ctx.textBaseline = 'bottom'; ctx.fillText(a, x0 + 20, y0 - 3);
+    }
+    function cellRadius(w, n) { const base = w / 125; return Math.max(1.6, Math.min(base, base * Math.sqrt(300 / Math.max(1, n)))); }
+
+    /* ---------------- stage drawing ---------------- */
+    function drawStage() {
+      const cv = $('#stage'), { ctx, w, h } = fitCanvas(cv), col = colors(), st = STEPS[S.step].key; S.hits = null;
+      if (st === 'reduce') return drawFactorScatter(ctx, w, h, col);
+      if (isEmbStep(st)) return drawEmbedding(ctx, w, h, col);
+      drawGEX(ctx, w, h, col, st); drawAxes(ctx, w, h, col, 'GEX1', 'GEX2');
+    }
+    function drawGEX(ctx, w, h, col, st) {
+      const D = S.data, M = discMap(w, h), r = cellRadius(w, D.n), lw = r > 3 ? 1.1 : 0.6, bgSize = D.bg.n > 9000 ? 1.15 : (w > 420 ? 1.7 : 1.3);
+      if (st === 'cells') drawBg(ctx, D.bg, M, col.cell, bgSize);
+      const k = D.k, cc = Array.from({ length: D.m }, (_, i) => cloneColor(i));
+      if (st === 'cells' || D.n < 2) { for (let i = 0; i < D.n; i++)dot(ctx, M.X(D.xs[i]), M.Y(D.ys[i]), r, cc[D.lab[i]], col.stroke, lw); return; }
+      ctx.strokeStyle = col.edge; ctx.lineWidth = D.n > 3000 ? 0.5 : 1; ctx.globalAlpha = st === 'counts' ? 0.4 : 0.8; ctx.beginPath();
+      for (let i = 0; i < D.n; i++)for (let t = 0; t < k; t++) { const j = D.nbr[i * k + t]; ctx.moveTo(M.X(D.xs[i]), M.Y(D.ys[i])); ctx.lineTo(M.X(D.xs[j]), M.Y(D.ys[j])); }
+      ctx.stroke(); ctx.globalAlpha = 1;
+      if (st !== 'counts') { for (let i = 0; i < D.n; i++)dot(ctx, M.X(D.xs[i]), M.Y(D.ys[i]), r, cc[D.lab[i]], col.stroke, lw); return; }
+      // counts: target set, the other set of the clicked cell, and the edges that make up that number
+      const a = S.focus, b = S.col, { ca, cb } = pairColors(), nb = new Set(), E = [];
+      if (b != null) for (let i = 0; i < D.n; i++) { if (D.lab[i] !== a) continue; for (let t = 0; t < k; t++) { const j = D.nbr[i * k + t]; if (D.lab[j] === b) { E.push([i, j]); nb.add(j); } } }
+      for (let i = 0; i < D.n; i++) {
+        const l = D.lab[i]; if (l === a || nb.has(i)) continue;
+        if (b != null && l === b) dot(ctx, M.X(D.xs[i]), M.Y(D.ys[i]), r * 0.9, cb, col.stroke, lw);
+        else dot(ctx, M.X(D.xs[i]), M.Y(D.ys[i]), r * 0.55, col.cellDot, null);
+      }
+      ctx.strokeStyle = col.fg; ctx.lineWidth = 2.4; ctx.beginPath();
+      for (const [i, j] of E) { ctx.moveTo(M.X(D.xs[i]), M.Y(D.ys[i])); ctx.lineTo(M.X(D.xs[j]), M.Y(D.ys[j])); } ctx.stroke();
+      const rf = Math.max(r * 1.3, 4);
+      for (let i = 0; i < D.n; i++)if (D.lab[i] === a) dot(ctx, M.X(D.xs[i]), M.Y(D.ys[i]), rf, ca, col.stroke, 1.4);
+      for (const j of nb) if (D.lab[j] !== a) dot(ctx, M.X(D.xs[j]), M.Y(D.ys[j]), rf * 0.95, cb, col.fg, 2);
+    }
+    function pairColors() { return perClone() ? { ca: cloneColor(S.focus), cb: S.col == null ? null : cloneColor(S.col) } : { ca: TARGET_C, cb: NEIGH_C }; }
+    function pairEdges() {
+      const D = S.data, a = S.focus, b = S.col, k = D.k; let e = 0; const nb = new Set(); if (b == null) return { e, nb: 0 };
+      for (let i = 0; i < D.n; i++) { if (D.lab[i] !== a) continue; for (let t = 0; t < k; t++) { const j = D.nbr[i * k + t]; if (D.lab[j] === b) { e++; nb.add(j); } } } return { e, nb: nb.size };
+    }
+    function scatterFrame(xs, ys, w, h, pad) {
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (let i = 0; i < xs.length; i++) { x0 = Math.min(x0, xs[i]); x1 = Math.max(x1, xs[i]); y0 = Math.min(y0, ys[i]); y1 = Math.max(y1, ys[i]); }
+      const span = Math.max(x1 - x0, y1 - y0, 1e-9), sc = (Math.min(w, h) - 2 * pad) / span, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+      return { X: x => w / 2 + (x - cx) * sc, Y: y => h / 2 - (y - cy) * sc };
+    }
+    function stageMessage(ctx, w, h, col, msg) { ctx.fillStyle = col.muted; ctx.font = '14px ' + FS(); ctx.textAlign = 'center'; ctx.fillText(msg, w / 2, h / 2); ctx.textAlign = 'left'; }
+    function drawFactorScatter(ctx, w, h, col) {
+      const pc = S.method === 'pca', g = pc ? S.pca : S.glm; if (!g) return stageMessage(ctx, w, h, col, S.data.m < 2 ? 'Add at least two clones' : 'Fitting…');
+      const n = S.data.m, xs = [], ys = [];
+      if (pc) for (let i = 0; i < n; i++) { xs.push(g.rows[i][0]); ys.push(g.k > 1 ? g.rows[i][1] : 0); }
+      else { const k = g.k; for (let i = 0; i < n; i++) { xs.push(g.C[i * k]); ys.push(k > 1 ? g.C[i * k + 1] : 0); } }
+      const F = scatterFrame(xs, ys, w, h, w * 0.12);
+      ctx.strokeStyle = col.line; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.beginPath();
+      ctx.moveTo(F.X(0), 0); ctx.lineTo(F.X(0), h); ctx.moveTo(0, F.Y(0)); ctx.lineTo(w, F.Y(0)); ctx.stroke(); ctx.setLineDash([]);
+      const r = n <= 20 ? Math.max(7, w / 50) : Math.max(3.5, w / 110); S.hits = [];
+      ctx.font = `600 ${Math.round(Math.max(11, r * 1.35))}px ${FS()}`; ctx.textBaseline = 'middle';
+      for (let i = 0; i < n; i++) {
+        const px = F.X(xs[i]), py = F.Y(ys[i]); S.hits.push([px, py, i]);
+        dot(ctx, px, py, r, cloneColor(i), col.stroke, n <= 20 ? 1.3 : 0.6); if (n <= 20) { ctx.fillStyle = col.fg; ctx.fillText(String(i + 1), px + r + 4, py); }
+      }
+      const px = F.X(xs[S.sel]), py = F.Y(ys[S.sel]); dot(ctx, px, py, r + 5, 'transparent', col.fg, 2);
+      drawAxes(ctx, w, h, col, ...(pc ? ['PC1', 'PC2'] : ['C1', 'C2']));
+    }
+    function drawEmbedding(ctx, w, h, col) {
+      const D = S.data, E = S.emb;
+      if (!E || !E.Y) return stageMessage(ctx, w, h, col, curStatus() || 'Preparing…');
+      const n = D.m, xs = [], ys = []; for (let i = 0; i < n; i++) { xs.push(E.Y[2 * i]); ys.push(E.Y[2 * i + 1]); }
+      const F = scatterFrame(xs, ys, w, h, w * 0.07), r = Math.max(3.5, Math.min(w / 60, w / 105 * Math.sqrt(200 / n))); S.hits = [];
+      const sel = S.selClones, any = sel.size > 0;
+      for (let i = 0; i < n; i++) {
+        const t = D.ctype[i], px = F.X(xs[i]), py = F.Y(ys[i]); S.hits.push([px, py, i]);
+        ctx.globalAlpha = (!any || sel.has(i)) ? 1 : 0.15; dot(ctx, px, py, r, TYPE_COLORS[t], n < 40 ? col.stroke : null, 1);
+      }
+      ctx.globalAlpha = 1;
+      if (any) for (const i of sel) dot(ctx, F.X(xs[i]), F.Y(ys[i]), r + 1.5, 'transparent', col.fg, 1.5);
+      ctx.font = `700 ${Math.round(Math.max(16, w / 24))}px ${FS()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (let t = 0; t < 10; t++) {
+        const ix = [], iy = []; for (let i = 0; i < n; i++)if (D.ctype[i] === t) { ix.push(xs[i]); iy.push(ys[i]); }
+        if (ix.length < 2) continue; ix.sort((a, b) => a - b); iy.sort((a, b) => a - b); const mx = F.X(ix[ix.length >> 1]), my = F.Y(iy[iy.length >> 1]);
+        ctx.globalAlpha = any ? 0.35 : 1;
+        ctx.lineWidth = 4; ctx.strokeStyle = col.panel; ctx.strokeText(String(t), mx, my); ctx.fillStyle = col.fg; ctx.fillText(String(t), mx, my);
+      }
+      ctx.globalAlpha = 1; ctx.textAlign = 'left';
+      if (S.hover != null && S.hover < n) dot(ctx, F.X(xs[S.hover]), F.Y(ys[S.hover]), r + 4, 'transparent', col.fg, 2);
+      if (S.lasso && S.lasso.length > 1) {
+        ctx.beginPath(); S.lasso.forEach(([x, y], q) => q ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath();
+        ctx.fillStyle = col.accent; ctx.globalAlpha = 0.1; ctx.fill(); ctx.globalAlpha = 1; ctx.setLineDash([5, 4]); ctx.strokeStyle = col.accent; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
+      }
+      drawAxes(ctx, w, h, col, ...(embKey() === 'pca' ? ['tSNE1', 'tSNE2'] : ['C2V1', 'C2V2']));
+    }
+    function drawLoss() {
+      const cv = $('#loss'); if (!cv || !S.glm) return; const { ctx, w, h } = fitCanvas(cv), col = colors(), g = S.glm, L = g.losses;
+      const lo = g.Ls, hi = Math.max(g.L0, lo + 1e-9), pad = 6, top = 16, X = i => pad + i / Math.max(1, (g.maxIt || 500) - 1) * (w - 2 * pad), Y = v => top + (1 - (v - lo) / (hi - lo)) * (h - top - pad - 12);
+      ctx.strokeStyle = col.line; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(pad, Y(hi)); ctx.lineTo(w - pad, Y(hi)); ctx.moveTo(pad, Y(lo)); ctx.lineTo(w - pad, Y(lo)); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = col.muted; ctx.font = '11px ' + FM(); ctx.textBaseline = 'bottom';
+      ctx.fillText('column frequencies only', pad + 2, Y(hi) - 1); ctx.textBaseline = 'top'; ctx.fillText('perfect fit', pad + 2, Y(lo) + 2);
+      if (!L.length) return; ctx.strokeStyle = col.accent; ctx.lineWidth = 2; ctx.beginPath();
+      L.forEach((v, i) => { const x = X(i), y = Y(Math.min(hi, Math.max(lo, v))); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+      dot(ctx, X(L.length - 1), Y(Math.min(hi, Math.max(lo, L[L.length - 1]))), 3.5, col.accent, null);
+    }
+    function drawDisc(cv, cells, colorFor, opts = {}) {
+      const { ctx, w, h } = fitCanvas(cv), col = colors(), M = discMap(w, h, 0.03), D = S.data;
+      drawBg(ctx, D.bg, M, col.cell, opts.bgSize || 1.1, Math.max(opts.stride || 3, Math.round(D.bg.n / 1700)));
+      const r = opts.r || 1.6;
+      for (const i of cells) {
+        const x = M.X(D.xs[i]), y = M.Y(D.ys[i]);
+        if (opts.outline) dot(ctx, x, y, r, colorFor(i), col.stroke, 1); else { ctx.fillStyle = colorFor(i) || col.fg; ctx.fillRect(x - r / 2, y - r / 2, r, r); }
+      }
+    }
+    function drawThumbs() {
+      const D = S.data, col = colors();
+      document.querySelectorAll('.thumb canvas').forEach(cv => {
+        const t = +cv.dataset.t, cells = [];
+        for (let i = 0; i < D.n; i++)if (D.ctype[D.lab[i]] === t) cells.push(i);
+        drawDisc(cv, cells, () => col.fg, { r: 1.7, stride: 4, bgSize: 1 });
+      });
+    }
+    function drawInset() {
+      const D = S.data, cv = $('#inset'); if (!cv || !D.m) return;
+      const sel = S.selClones.size ? [...S.selClones].sort((a, b) => a - b) : [Math.min(S.hover ?? 0, D.m - 1)], cells = [];
+      for (const c of sel) for (let i = D.start[c]; i < D.start[c + 1]; i++)cells.push(i);
+      const r = cells.length > 3000 ? 1.8 : cells.length > 800 ? 2.4 : 3.2;
+      drawDisc(cv, cells, i => TYPE_COLORS[D.ctype[D.lab[i]]], { outline: true, r, stride: 2, bgSize: 1.2 });
+      const info = $('#insetInfo'); if (!info) return;
+      if (S.selClones.size) {
+        const byType = new Array(10).fill(0); for (const c of sel) byType[D.ctype[c]]++;
+        info.innerHTML = `<div class="eyebrow">Selection</div><h3 style="font-size:17px">${sel.length} clone${sel.length > 1 ? 's' : ''} · ${fmtN(cells.length)} cells</h3>
+     <div class="legend">${byType.map((v, t) => v ? `<span><i class="sw" style="background:${TYPE_COLORS[t]}"></i> ${TYPES[t].name} ×${v}</span>` : '').join('')}</div>
+     <div><button class="btn sm" id="clearSel">Clear selection</button></div>`;
+        $('#clearSel').addEventListener('click', () => { S.selClones = new Set(); syncThumbs(); drawStage(); drawInset(); });
+      } else {
+        const c = sel[0], t = D.ctype[c];
+        info.innerHTML = `<div class="eyebrow">Clone ${c + 1} of ${D.m}</div><h3 style="font-size:17px">${cells.length} cells</h3>
+     <p class="small muted" style="margin:0">Hidden shape: <b style="color:var(--fg)">${t} · ${TYPES[t].name}</b>.</p>
+     <p class="small muted" style="margin:0">Drag on the embedding to lasso clones; their cells appear here. Shift adds to the selection, a click picks one clone.</p>`;
+      }
+    }
+    function syncThumbs() {
+      const D = S.data; document.querySelectorAll('.thumb').forEach(x => {
+        const t = +x.dataset.t;
+        const all = D.ctype.map((v, i) => v === t ? i : -1).filter(i => i >= 0); x.setAttribute('aria-pressed', String(all.length > 0 && all.length === S.selClones.size && all.every(i => S.selClones.has(i))));
+      });
+    }
+    function drawShapeIcons() {
+      const col = colors();
+      document.querySelectorAll('canvas.sicon').forEach(cv => {
+        const { ctx, w, h } = fitCanvas(cv), t = +cv.dataset.t, M = discMap(w, h, 0.04), R = rng(900 + t);
+        ctx.beginPath(); ctx.arc(w / 2, h / 2, M.sc, 0, 6.2832); ctx.fillStyle = col.empty; ctx.fill();
+        ctx.fillStyle = TYPE_COLORS[t]; for (let q = 0; q < 160; q++) { const [x, y] = samplePattern(R, TYPES[t]); ctx.fillRect(M.X(x) - 0.7, M.Y(y) - 0.7, 1.4, 1.4); }
+      });
+    }
+    function drawHist(sel = '#hist') {
+      const cv = $(sel); if (!cv) return; const { ctx, w, h } = fitCanvas(cv), col = colors(), sz = S.data.sizes, ds = S.ds;
+      let lo, hi;
+      if (ds.dist === 'fixed' || ds.dist === 'bimodal' || ds.keep < 100 || !sz.length) { lo = sz.length ? Math.min(...sz) : 1; hi = sz.length ? Math.max(...sz) : 1; if (ds.dist === 'fixed' && ds.keep >= 100) { lo = Math.max(1, lo - 5); hi = hi + 5; } if (ds.dist === 'bimodal') { lo = Math.max(1, Math.min(lo, ds.smin)); hi = Math.max(hi, ds.lmax); } }
+      else { lo = Math.max(1, Math.round(ds.min)); hi = Math.max(lo, Math.round(ds.max)); }
+      const nb = Math.min(40, hi - lo + 1), bw = (hi - lo + 1) / nb, cnt = new Array(nb).fill(0);
+      for (const s of sz) cnt[Math.min(nb - 1, Math.floor((s - lo) / bw))]++;
+      const mx = Math.max(1, ...cnt), pb = 16, gw = (w - 2) / nb; S.histGeom = S.histGeom || {}; S.histGeom[sel] = { lo, bw, nb, gw };
+      ctx.strokeStyle = col.line; ctx.beginPath(); ctx.moveTo(0, h - pb + 0.5); ctx.lineTo(w, h - pb + 0.5); ctx.stroke();
+      const hb = sel === '#simHist' ? S.simBin : null;
+      if (hb != null) { ctx.fillStyle = col.accent; ctx.globalAlpha = 0.12; ctx.fillRect(1 + hb * gw, 0, Math.max(2, gw), h - pb); ctx.globalAlpha = 1; }
+      cnt.forEach((c, i) => { if (!c) return; const bh = (h - pb - 4) * c / mx; ctx.fillStyle = hb == null || hb === i ? col.accent : col.cellDot; ctx.fillRect(1 + i * gw + 0.5, h - pb - bh, Math.max(1, gw - 1), bh); });
+      ctx.fillStyle = col.muted; ctx.font = '11px ' + FM(); ctx.textBaseline = 'bottom';
+      ctx.textAlign = 'left'; ctx.fillText(String(lo), 0, h); ctx.textAlign = 'right'; ctx.fillText(String(hi), w, h); ctx.textAlign = 'left';
+      if (!sz.length) { ctx.textAlign = 'center'; ctx.fillText('no clones', w / 2, (h - pb) / 2); ctx.textAlign = 'left'; }
+    }
+
+    /* ---------------- dataset editor ---------------- */
+    function renderDataset() {
+      const ds = S.ds, d = DISTS[ds.dist], keys = Object.keys(d.def);
+      $('#dataset').innerHTML = `<details class="card dataset" id="dsBox" ${S.dsOpen ? 'open' : ''}>
+   <summary><span class="eyebrow">Dataset</span><span class="dsum" id="dsum"></span><span class="edit"></span></summary>
+   <div class="ds-grid">
+    <div class="ds-col ds-counts"><h4>Clones per shape</h4>
+      <div class="shape-list">${TYPES.map((t, i) => `<div class="shape-row"><canvas class="sicon" data-t="${i}"></canvas><span>${t.name}</span>
+        <div class="stepper"><button data-t="${i}" data-d="-1" aria-label="Remove a ${t.name} clone">−</button><input type="number" id="cnt${i}" data-t="${i}" min="0" max="${MAX_PER_SHAPE}" value="${ds.counts[i]}" aria-label="${t.name} clones"><button data-t="${i}" data-d="1" aria-label="Add a ${t.name} clone">+</button></div></div>`).join('')}</div>
+      <div class="presets"><button class="btn sm" data-bulk="20">+20 to every shape</button><button class="btn sm" data-bulk="-20">−20 from every shape</button><button class="btn sm" data-bulk="0">Clear</button></div>
+    </div>
+    <div class="ds-col"><h4>Clone size distribution</h4>
+      <div class="seg" id="distSeg">${Object.entries(DISTS).map(([k, v]) => `<button data-v="${k}" aria-pressed="${ds.dist === k}">${v.label}</button>`).join('')}</div>
+      <div class="law">${d.law}</div>
+      ${keys.map(k => { const P = PARAMS[k]; return `<div class="prm"><label for="p_${k}">${P.label}</label><input type="range" id="p_${k}" data-k="${k}" min="${P.min}" max="${P.max}" step="${P.step}" value="${ds[k]}"><output id="o_${k}">${ds[k]}</output></div>`; }).join('')}
+      <canvas id="hist" aria-label="Histogram of sampled clone sizes"></canvas>
+      <div class="stat" id="histStat"></div>
+    </div>
+    <div class="ds-col"><h4>Make sparser</h4>
+      <div class="prm"><label for="p_keep">keep cells</label><input type="range" id="p_keep" data-k="keep" min="5" max="100" step="5" value="${ds.keep}"><output id="o_keep">${ds.keep}</output></div>
+      <p class="small muted" style="margin:0">Subsamples the clones above: each cell is captured with this probability (%), as with incomplete barcode recovery. Every clone keeps at least one cell. The histogram shows sizes after subsampling.</p>
+      <div><button class="btn sm" id="resample">Resample everything</button></div>
+      <div class="stat" id="cellStat"></div>
+    </div>
+   </div></details>`;
+      bindDataset(); updateDatasetStats(); drawShapeIcons(); drawHist();
+    }
+    function updateDatasetStats() {
+      const D = S.data, ds = S.ds, sz = [...D.sizes].sort((a, b) => a - b);
+      const mean = sz.length ? sz.reduce((a, b) => a + b, 0) / sz.length : 0, med = sz.length ? sz[sz.length >> 1] : 0;
+      const full = D.fullSizes.reduce((a, b) => a + b, 0);
+      $('#dsum').innerHTML = `<b>${D.m}</b> clones · <b>${fmtN(D.n)}</b> barcoded cells · sizes ${DISTS[ds.dist].label}${ds.keep < 100 ? ` · ${ds.keep}% captured` : ''}`;
+      $('#histStat').innerHTML = `${sz.length} clones · mean <b>${mean.toFixed(1)}</b> · median <b>${med}</b> · largest <b>${sz.length ? sz[sz.length - 1] : 0}</b>`;
+      $('#cellStat').innerHTML = `<b>${fmtN(D.n)}</b> barcoded cells in <b>${D.m}</b> clones${ds.keep < 100 ? ` (of ${fmtN(full)} before subsampling)` : ''}${D.n > 12000 ? '<br>Large graph: the kNN step may take a second.' : ''}`;
+      for (let i = 0; i < 10; i++) { const el = $('#cnt' + i); if (el && document.activeElement !== el) el.value = ds.counts[i]; }
+      drawHist();
+    }
+    function dataChanged(keepPreset) {
+      if (!keepPreset) S.preset = null; buildData(); S.run++; updateDatasetStats(); render(); restartJobs();
+    }
+    function bindDataset() {
+      const box = $('#dsBox'); box.addEventListener('toggle', () => { S.dsOpen = box.open; if (box.open) { drawShapeIcons(); drawHist(); } });
+      box.querySelectorAll('.stepper button').forEach(b => b.addEventListener('click', () => {
+        const t = +b.dataset.t;
+        S.ds.counts[t] = Math.max(0, Math.min(MAX_PER_SHAPE, S.ds.counts[t] + (+b.dataset.d))); dataChanged();
+      }));
+      box.querySelectorAll('.stepper input').forEach(inp => inp.addEventListener('change', () => {
+        const t = +inp.dataset.t;
+        let v = Math.round(+inp.value); if (!isFinite(v)) v = 0; S.ds.counts[t] = Math.max(0, Math.min(MAX_PER_SHAPE, v)); inp.value = S.ds.counts[t]; dataChanged();
+      }));
+      box.querySelectorAll('[data-bulk]').forEach(b => b.addEventListener('click', () => {
+        const d = +b.dataset.bulk;
+        S.ds.counts = S.ds.counts.map(c => d === 0 ? 0 : Math.max(0, Math.min(MAX_PER_SHAPE, c + d))); dataChanged();
+      }));
+      $('#distSeg').addEventListener('click', e => {
+        const b = e.target.closest('button'); if (!b || b.dataset.v === S.ds.dist) return;
+        S.ds.dist = b.dataset.v; Object.assign(S.ds, DISTS[S.ds.dist].def); buildData(); S.run++; renderDataset(); render(); restartJobs();
+      });
+      box.querySelectorAll('.prm input[data-k]').forEach(inp => {
+        const k = inp.dataset.k;
+        inp.addEventListener('input', () => { $('#o_' + k).textContent = inp.value; });
+        inp.addEventListener('change', () => {
+          let v = +inp.value; S.ds[k] = v;
+          if (k === 'min' && S.ds.max < v) { S.ds.max = v; const m = $('#p_max'); if (m) { m.value = v; $('#o_max').textContent = v; } }
+          if (k === 'max' && S.ds.min > v) { S.ds.min = v; const m = $('#p_min'); if (m) { m.value = v; $('#o_min').textContent = v; } }
+          dataChanged();
+        });
+      });
+      $('#resample').addEventListener('click', () => { S.seed = (S.seed * 7 + 13) % 100000; dataChanged(true); });
+    }
+
+    /* ---------------- panels ---------------- */
+    function legendHTML() {
+      const D = S.data; if (!D.m) return '<span>No clones selected.</span>';
+      if (perClone()) return '<div class="legend">' + Array.from({ length: D.m }, (_, i) => `<span><i class="sw" style="background:${cloneColor(i)}"></i> Clone ${i + 1}</span>`).join('') + '</div>';
+      return '<div class="legend">' + TYPES.map((t, i) => S.ds.counts[i] ? `<span><i class="sw" style="background:${TYPE_COLORS[i]}"></i> ${t.name} ×${S.ds.counts[i]}</span>` : '').join('') + '</div>';
+    }
+    function rowSums() { return S.data.M.map(r => r.reduce((a, b) => a + b, 0)); }
+    function tableHTML(heat) {
+      const D = S.data, M = D.M, m = D.m, rs = rowSums(), HR = heatRange(), O = dispOrder();
+      let h = clusterBar() + '<div class="tbl-wrap"><table class="cm"><thead><tr><th class="corner"></th>';
+      for (const j of O) h += `<th class="colh" data-c="${j}" style="color:${cloneColor(j)}"><span>Clone ${j + 1}</span></th>`;
+      h += '</tr></thead><tbody>';
+      for (const i of O) {
+        const c = cloneColor(i);
+        h += `<tr class="${i === S.focus ? 'focus' : ''}"><th class="rowh" data-r="${i}" style="background:${c};color:${inkOn(hexRgb(c))}">Clone ${i + 1}</th>`;
+        for (const j of O) {
+          const v = S.frac ? (rs[i] ? M[i][j] / rs[i] : 0) : M[i][j], txt = S.frac ? v.toFixed(2) : String(v);
+          let st = ''; if (heat) { const cc = coolwarm(HR.t(v)); st = `background:${rgbCss(cc)};color:${inkOn(cc)}`; }
+          const sel = i === S.focus && j === S.col ? 'sel' : '';
+          h += `<td class="${sel}" data-r="${i}" data-c="${j}" style="${st}" title="n(Clone ${j + 1} | Clone ${i + 1}) = ${M[i][j]}">${txt}</td>`;
+        }
+        h += '</tr>';
+      }
+      return h + '</tbody></table></div>';
+    }
+    /* ---- hierarchical clustering of rows (Euclidean distance), same order applied to columns ---- */
+    function hclust(X, method) {
+      const n = X.length, p = n ? X[0].length : 0, D = new Float64Array(n * n);
+      for (let i = 0; i < n; i++)for (let j = i + 1; j < n; j++) { let s = 0; for (let q = 0; q < p; q++) { const t = X[i][q] - X[j][q]; s += t * t; } D[i * n + j] = D[j * n + i] = Math.sqrt(s); }
+      return hclustD(D, n, method);
+    }
+    /* agglomerative clustering on a precomputed distance matrix (copied; Ward works on squared distances) */
+    function hclustD(D0, n, method) {
+      const ward = method === 'ward', D = Float64Array.from(D0, v => ward ? v * v : v);
+      const act = new Uint8Array(n).fill(1), size = new Float64Array(n).fill(1), slot = Array.from({ length: n }, (_, i) => i), nodes = [];
+      for (let step = 0; step < n - 1; step++) {
+        let bi = -1, bj = -1, bd = Infinity;
+        for (let i = 0; i < n; i++)if (act[i]) for (let j = i + 1; j < n; j++)if (act[j] && D[i * n + j] < bd) { bd = D[i * n + j]; bi = i; bj = j; }
+        nodes.push({ a: slot[bi], b: slot[bj], h: ward ? Math.sqrt(Math.max(0, bd)) : bd });
+        const ni = size[bi], nj = size[bj];
+        for (let k = 0; k < n; k++) {
+          if (!act[k] || k === bi || k === bj) continue; const dik = D[bi * n + k], djk = D[bj * n + k], nk = size[k]; let v;
+          if (method === 'single') v = Math.min(dik, djk); else if (method === 'complete') v = Math.max(dik, djk);
+          else if (method === 'average') v = (ni * dik + nj * djk) / (ni + nj);
+          else v = ((ni + nk) * dik + (nj + nk) * djk - nk * bd) / (ni + nj + nk);
+          D[bi * n + k] = D[k * n + bi] = v;
+        }
+        act[bj] = 0; size[bi] = ni + nj; slot[bi] = n + step;
+      }
+      const order = [];
+      if (n) {
+        const stack = [nodes.length ? n + nodes.length - 1 : 0];
+        while (stack.length) { const v = stack.pop(); if (v < n) order.push(v); else { const nd = nodes[v - n]; stack.push(nd.b, nd.a); } }
+      }
+      return { order, nodes, n };
+    }
+    function runClustering(method) {
+      const D = S.data, rs = rowSums(), X = D.M.map((r, i) => Float64Array.from(r, v => S.frac ? (rs[i] ? v / rs[i] : 0) : v));
+      S.hc = { method, frac: S.frac, ...hclust(X, method) }; S.zoom = null; S.zoomStack = [];
+    }
+    function dispOrder() { const D = S.data; if (S.hc && S.hc.n === D.m) return S.hc.order; return Array.from({ length: D.m }, (_, i) => i); }
+    function clusterBar() {
+      const hc = S.hc;
+      return `<div class="controls" style="padding:0 0 8px;justify-content:center">
+    <button class="btn sm ${hc ? '' : 'primary'}" id="doCluster">${hc ? 'Re-cluster' : 'Perform hierarchical clustering'}</button>
+    <button class="btn sm" id="unCluster" ${hc ? '' : 'disabled'}>Order by shape</button></div>
+    <div class="stat" style="text-align:center;padding-bottom:6px">${hc ? `Rows clustered by Euclidean distance between their ${hc.frac ? 'fraction' : 'count'} vectors, Ward linkage; columns use the same order.` : 'Rows and columns ordered by hidden shape.'}</div>`;
+    }
+    /* color limits: S.vlim[mode] = [vmin, vmax] or null for auto (0 → data max) */
+    function heatRange() {
+      const D = S.data, rs = rowSums(); let mx = 0; for (let i = 0; i < D.m; i++)for (let j = 0; j < D.m; j++)mx = Math.max(mx, heatVal(i, j, rs));
+      const L = S.vlim[S.frac ? 'frac' : 'counts']; let vmin = L ? L[0] : 0, vmax = L ? L[1] : mx; if (vmax <= vmin) vmax = vmin + (S.frac ? 0.01 : 1);
+      return { vmin, vmax, dataMax: mx, auto: !L, t: v => (v - vmin) / (vmax - vmin) };
+    }
+    function cbarHTML() {
+      const R = heatRange(), step = S.frac ? 0.01 : 1, top = S.frac ? Math.min(1, Math.ceil(R.dataMax * 100) / 100) : Math.max(1, R.dataMax), f = v => S.frac ? v.toFixed(2) : String(Math.round(v));
+      const grad = [0, .25, .5, .75, 1].map(t => rgbCss(coolwarm(t))).join(',');
+      return `<div class="cbar-wrap">
+    <div class="prm"><label for="vminR">vmin</label><input type="range" id="vminR" min="0" max="${top}" step="${step}" value="${R.vmin}"><output id="vminO">${f(R.vmin)}</output></div>
+    <div class="prm"><label for="vmaxR">vmax</label><input type="range" id="vmaxR" min="0" max="${top}" step="${step}" value="${Math.min(R.vmax, top)}"><output id="vmaxO">${f(R.vmax)}</output></div>
+    <div class="cbar"><span id="cbLo">${R.vmin > 0 ? '≤ ' : ''}${f(R.vmin)}</span><i style="background:linear-gradient(90deg,${grad})"></i><span id="cbHi">${R.vmax < R.dataMax ? '≥ ' : ''}${f(R.vmax)}</span>
+    <button class="btn sm" id="vAuto" ${R.auto ? 'disabled' : ''}>Auto (0 → max)</button></div></div>`;
+    }
+    function heatVal(i, j, rs) { const v = S.data.M[i][j]; return S.frac ? (rs[i] ? v / rs[i] : 0) : v; }
+    function drawHeat() {
+      const cv = $('#heat'); if (!cv) return; const { ctx, w, h } = fitCanvas(cv), col = colors(), D = S.data, m = D.m, rs = rowSums(), O = dispOrder(), inv = new Int32Array(m);
+      O.forEach((v, r) => inv[v] = r);
+      const Z = S.zoom || { r0: 0, r1: m, c0: 0, c1: m }, dw = S.hc && !S.zoom ? Math.round(w * 0.09) : 0, band = 12, ox = dw + band, oy = dw + band;
+      const csx = (w - ox) / (Z.c1 - Z.c0), csy = (h - oy) / (Z.r1 - Z.r0); S.heatGeom = { ox, oy, csx, csy, Z, O };
+      const HR = heatRange();
+      for (let c = Z.c0; c < Z.c1; c++) { ctx.fillStyle = cloneColor(O[c]); ctx.fillRect(ox + (c - Z.c0) * csx, dw, Math.ceil(csx), band - 3); }
+      for (let r = Z.r0; r < Z.r1; r++) { ctx.fillStyle = cloneColor(O[r]); ctx.fillRect(dw, oy + (r - Z.r0) * csy, band - 3, Math.ceil(csy)); }
+      const nums = Math.min(csx, csy) >= 22, fs = Math.min(13, Math.floor(Math.min(csx, csy) * 0.42));
+      ctx.font = `${fs}px ${FM()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (let r = Z.r0; r < Z.r1; r++)for (let c = Z.c0; c < Z.c1; c++) {
+        const v = heatVal(O[r], O[c], rs), cc = coolwarm(HR.t(v)), x = ox + (c - Z.c0) * csx, y = oy + (r - Z.r0) * csy;
+        ctx.fillStyle = rgbCss(cc); ctx.fillRect(x, y, Math.ceil(csx), Math.ceil(csy));
+        if (nums) { ctx.fillStyle = inkOn(cc); ctx.fillText(S.frac ? v.toFixed(2).replace(/^0/, '') : String(v), x + csx / 2, y + csy / 2); }
+      }
+      if (nums) {
+        ctx.strokeStyle = col.panel; ctx.lineWidth = 1; ctx.beginPath();
+        for (let j = 0; j <= Z.c1 - Z.c0; j++) { ctx.moveTo(ox + j * csx, oy); ctx.lineTo(ox + j * csx, h); }
+        for (let i = 0; i <= Z.r1 - Z.r0; i++) { ctx.moveTo(ox, oy + i * csy); ctx.lineTo(w, oy + i * csy); } ctx.stroke();
+      }
+      ctx.textAlign = 'left';
+      if (dw) drawDendro(ctx, dw, ox, oy, csx, csy, inv, col);
+      const fr = inv[S.focus], fc = S.col == null ? -1 : inv[S.col];
+      if (fr >= Z.r0 && fr < Z.r1) { ctx.strokeStyle = col.fg; ctx.lineWidth = 1.5; ctx.strokeRect(ox + 0.75, oy + (fr - Z.r0) * csy, w - ox - 1.5, csy); }
+      if (fc >= 0 && fr >= Z.r0 && fr < Z.r1 && fc >= Z.c0 && fc < Z.c1) {
+        const x = ox + (fc - Z.c0) * csx, y = oy + (fr - Z.r0) * csy; ctx.lineWidth = 3; ctx.strokeStyle = col.panel; ctx.strokeRect(x - 2, y - 2, csx + 4, csy + 4);
+        ctx.lineWidth = 2; ctx.strokeStyle = col.fg; ctx.strokeRect(x - 2, y - 2, csx + 4, csy + 4);
+      }
+      const d = S.heatDrag;
+      if (d && d.moved) {
+        ctx.fillStyle = col.accent; ctx.globalAlpha = 0.15; const x = Math.min(d.x0, d.x1), y = Math.min(d.y0, d.y1);
+        ctx.fillRect(x, y, Math.abs(d.x1 - d.x0), Math.abs(d.y1 - d.y0)); ctx.globalAlpha = 1; ctx.strokeStyle = col.accent; ctx.lineWidth = 1.5; ctx.strokeRect(x, y, Math.abs(d.x1 - d.x0), Math.abs(d.y1 - d.y0));
+      }
+    }
+    function drawDendro(ctx, dw, ox, oy, csx, csy, inv, col, hc = S.hc) {
+      const n = hc.n, pos = new Float64Array(n + hc.nodes.length), hh = new Float64Array(n + hc.nodes.length);
+      for (let i = 0; i < n; i++)pos[i] = inv[i] + 0.5;
+      let hmax = 1e-12; hc.nodes.forEach((nd, q) => { pos[n + q] = (pos[nd.a] + pos[nd.b]) / 2; hh[n + q] = nd.h; hmax = Math.max(hmax, nd.h); });
+      const sc = v => (dw - 3) * (1 - v / hmax);
+      ctx.strokeStyle = col.muted; ctx.lineWidth = 0.8; ctx.beginPath();
+      hc.nodes.forEach((nd, q) => {
+        const H = sc(hh[n + q]), A = sc(hh[nd.a]), B = sc(hh[nd.b]);
+        // left dendrogram (rows): x = height, y = position
+        const ya = oy + pos[nd.a] * csy, yb = oy + pos[nd.b] * csy;
+        ctx.moveTo(A, ya); ctx.lineTo(H, ya); ctx.lineTo(H, yb); ctx.lineTo(B, yb);
+        // top dendrogram (columns)
+        const xa = ox + pos[nd.a] * csx, xb = ox + pos[nd.b] * csx;
+        ctx.moveTo(xa, A); ctx.lineTo(xa, H); ctx.lineTo(xb, H); ctx.lineTo(xb, B);
+      });
+      ctx.stroke();
+    }
+    function heatCell(x, y) {
+      const G = S.heatGeom; if (!G) return null; const Z = G.Z;
+      const r = Math.max(Z.r0, Math.min(Z.r1 - 1, Z.r0 + Math.floor((y - G.oy) / G.csy))), c = Math.max(Z.c0, Math.min(Z.c1 - 1, Z.c0 + Math.floor((x - G.ox) / G.csx)));
+      return { r, c, i: G.O[r], j: G.O[c], inside: x >= G.ox && y >= G.oy };
+    }
+    function heatInfo(i, j) {
+      const D = S.data, rs = rowSums(), v = D.M[i][j];
+      return `row ${pill(i)} <span class="muted">${TYPES[D.ctype[i]].name}</span> · column ${pill(j)} <span class="muted">${TYPES[D.ctype[j]].name}</span> · <b>${v}</b> neighbor${v === 1 ? '' : 's'}${rs[i] ? ` (${(v / rs[i]).toFixed(3)} of ${rs[i]})` : ''}`;
+    }
+    function matrixView() {
+      if (perClone()) return tableHTML(true);
+      const Z = S.zoom, m = S.data.m;
+      return `<div class="heatbox">${clusterBar()}<div class="controls" style="padding:0 0 8px;justify-content:center">
+    <span class="stat">${Z ? `rows ${Z.r0 + 1}–${Z.r1} × columns ${Z.c0 + 1}–${Z.c1} of ${m}` : `all ${m} × ${m}`}</span>
+    <button class="btn sm" id="zoomOut" ${S.zoomStack.length ? '' : 'disabled'}>Zoom out</button><button class="btn sm" id="zoomReset" ${Z ? '' : 'disabled'}>Full matrix</button></div>
+    <canvas id="heat" aria-label="Count matrix heatmap. Drag to zoom, click to select a cell."></canvas>
+    <div class="stat" id="heatInfo" style="text-align:center;min-height:1.6em">Drag a rectangle to zoom in · click a cell to trace it in expression space</div></div>`;
+    }
+    function fracSeg() { return `<div class="ctl"><label>Show</label><div class="seg" id="fracSeg"><button data-v="0" aria-pressed="${!S.frac}">counts</button><button data-v="1" aria-pressed="${S.frac}">fractions</button></div></div>`; }
+    function formulaHTML() {
+      const D = S.data, a = S.focus, b = S.col, rs = D.M[a].reduce((x, y) => x + y, 0);
+      const { ca, cb } = pairColors(), pa = pill(a, ca);
+      if (b == null) return `<div class="card prose" style="gap:8px"><div class="formula" id="formula">Click a cell in the ${pa} row</div></div>`;
+      const v = D.M[a][b], pe = pairEdges(), na = D.sizes[a], pb = pill(b, cb), ta = TYPES[D.ctype[a]].name, tb = TYPES[D.ctype[b]].name;
+      return `<div class="card prose" style="gap:8px"><div class="formula" id="formula">n(${pb} | ${pa}) = ${v}${S.frac ? ` / ${rs} = ${(rs ? v / rs : 0).toFixed(2)}` : ''}</div>
+   <p class="small" style="margin:0">${pa} is a ${ta} clone with ${na} cells, so it has ${na} × ${D.k} = ${rs} neighbor slots. ${v} of them ${v === 1 ? 'is' : 'are'} taken by ${pe.nb} distinct cell${pe.nb === 1 ? '' : 's'} of ${pb}${a === b ? ' (the clone itself)' : `, a ${tb} clone`}. The left panel draws exactly those ${v} edges.</p></div>`;
+    }
+    function glmVizHTML() {
+      const g = S.glm; if (!g) return ''; const { n, p, k, C, W } = g, compact = p > 20, ch = compact ? 14 : 22, colT = compact ? 'minmax(0,1fr)' : '22px', wrapW = compact ? ' style="width:100%"' : '';
+      let cm = 1e-9, wm = 1e-9; for (const v of C) cm = Math.max(cm, Math.abs(v)); for (const v of W) wm = Math.max(wm, Math.abs(v));
+      const sym = (v, m) => rgbCss(coolwarm((v / m + 1) / 2));
+      const bandRow = lead => `<div>${lead || ''}</div>` + Array.from({ length: p }, (_, j) => compact ? `<div class="band" style="background:${cloneColor(j)}"></div>` : `<div class="top"><i class="sw" style="background:${cloneColor(j)}"></i></div>`).join('');
+      let c;
+      if (!compact) {
+        c = `<div><div class="mxname">C <span class="muted small">clones × ${k}</span></div><div class="mx" style="grid-template-columns:auto repeat(${k},22px)"><div></div>`;
+        for (let a = 0; a < k; a++)c += `<div class="top">${a + 1}</div>`;
+        for (let i = 0; i < n; i++) {
+          c += `<div class="lab ${i === S.sel ? 'sel' : ''}" data-row="${i}"><i class="sw" style="background:${cloneColor(i)}"></i>${i + 1}</div>`;
+          for (let a = 0; a < k; a++)c += `<div class="hc ${i === S.sel ? 'sel' : ''}" data-row="${i}" style="background:${sym(C[i * k + a], cm)}" title="C[clone ${i + 1}, factor ${a + 1}] = ${C[i * k + a].toFixed(2)}"></div>`;
+        }
+        c += '</div></div>';
+      } else {
+        c = `<div${wrapW}><div class="mxname">Cᵀ <span class="muted small">${k} × clones, transposed to fit · click a column</span></div><div class="mx compact" style="grid-template-columns:30px repeat(${p},${colT});--ch:${ch}px;gap:1px 0">${bandRow()}`;
+        for (let a = 0; a < k; a++) { c += `<div class="lab">f${a + 1}</div>`; for (let i = 0; i < n; i++)c += `<div class="hc ${i === S.sel ? 'sel' : ''}" data-row="${i}" style="background:${sym(C[i * k + a], cm)}" title="Clone ${i + 1}: ${C[i * k + a].toFixed(2)}"></div>`; }
+        c += '</div></div>';
+      }
+      let w = `<div${wrapW}><div class="mxname">W <span class="muted small">${k} × clones</span></div><div class="mx ${compact ? 'compact' : ''}" style="grid-template-columns:${compact ? '30px' : 'auto'} repeat(${p},${colT});--ch:${ch}px;${compact ? 'gap:1px 0' : ''}">${bandRow()}`;
+      for (let a = 0; a < k; a++) { w += `<div class="lab">f${a + 1}</div>`; for (let j = 0; j < p; j++)w += `<div class="hc" style="background:${sym(W[a * p + j], wm)}" title="W[factor ${a + 1}, Clone ${j + 1}] = ${W[a * p + j].toFixed(2)}"></div>`; }
+      w += '</div></div>';
+      const r = S.sel, { logit, prob } = glmRow(g, r), obs = Array.from(g.X[r], x => g.rs[r] ? x / g.rs[r] : 0);
+      let lo = Infinity, hi = -Infinity; for (const v of logit) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+      let pm = 1e-9; for (let j = 0; j < p; j++)pm = Math.max(pm, prob[j], obs[j]);
+      const cols = `grid-template-columns:96px repeat(${p},${compact ? 'minmax(0,1fr)' : '30px'})`;
+      const cellH = (t, txt, title) => { const cc = coolwarm(t); return `<div class="v" style="background:${rgbCss(cc)};color:${inkOn(cc)}" title="${title}">${compact ? '' : txt}</div>`; };
+      let rowLoss = 0; for (let j = 0; j < p; j++)if (g.X[r][j] > 0) rowLoss -= g.X[r][j] * Math.log(prob[j] / obs[j]);
+      const cls = `strip${compact ? ' compact' : ''}`;
+      let s = `<div class="strips"><div class="${cls}" style="${cols}">${bandRow('<span></span>')}</div>`;
+      s += `<div class="${cls}" style="${cols}"><div class="name">C·W + b</div>${Array.from(logit, (v, j) => cellH((v - lo) / (hi - lo || 1), v.toFixed(1), `Clone ${j + 1}: ${v.toFixed(2)}`)).join('')}</div>`;
+      s += `<div class="${cls}" style="${cols}"><div class="name"></div><div class="arrow">↓ softmax</div></div>`;
+      s += `<div class="${cls}" style="${cols}"><div class="name">reconstructed</div>${Array.from(prob, (v, j) => cellH(v / pm, v.toFixed(2), `Clone ${j + 1}: ${v.toFixed(3)}`)).join('')}</div>`;
+      s += `<div class="${cls}" style="${cols}"><div class="name"></div><div class="arrow">≈ multinomial loss for this row: ${rowLoss.toFixed(2)} nats (KL × ${g.rs[r]} neighbors)</div></div>`;
+      s += `<div class="${cls}" style="${cols}"><div class="name">observed</div>${obs.map((v, j) => cellH(v / pm, v.toFixed(2), `Clone ${j + 1}: ${v.toFixed(3)}`)).join('')}</div></div>`;
+      return `<div class="card"><div class="glmrow ${compact ? 'stack' : ''}">${c}${compact ? '' : '<div class="op">×</div>'}${w}</div>
+    <div style="padding:0 14px"><div class="eyebrow">Row ${pill(r)} · ${TYPES[S.data.ctype[r]].name}</div></div>${s}</div>`;
+    }
+    function refreshRowViz() { const g = $('#glmViz'); if (g) g.innerHTML = glmVizHTML(); const p = $('#pcaViz'); if (p) p.innerHTML = pcaVizHTML(); }
+    function pcaVizHTML() {
+      const P = S.pca, D = S.data; if (!P) return ''; const p = D.m, r = Math.min(S.sel, p - 1), compact = p > 20;
+      const cols = `grid-template-columns:110px repeat(${p},${compact ? 'minmax(0,1fr)' : '30px'})`, cls = `strip${compact ? ' compact' : ''}`;
+      const raw = Array.from(D.M[r]), norm = Array.from(P.X[r], (v, j) => v + P.mu[j]);
+      const mxR = Math.max(1e-9, ...raw), mxN = Math.max(1e-9, ...norm);
+      const cell = (t, txt, title) => { const cc = coolwarm(t); return `<div class="v" style="background:${rgbCss(cc)};color:${inkOn(cc)}" title="${title}">${compact ? '' : txt}</div>`; };
+      const band = `<div class="${cls}" style="${cols}"><span></span>${Array.from({ length: p }, (_, j) => compact ? `<div class="band" style="background:${cloneColor(j)}"></div>` : `<div style="text-align:center"><i class="sw" style="background:${cloneColor(j)}"></i></div>`).join('')}</div>`;
+      let h = `<div class="card"><div style="padding:12px 14px 0"><div class="eyebrow">Row ${pill(r)} · ${TYPES[D.ctype[r]].name} · ${P.rs[r]} neighbors</div></div><div class="strips">${band}`;
+      h += `<div class="${cls}" style="${cols}"><div class="name">counts</div>${raw.map((v, j) => cell(v / mxR, String(v), `Clone ${j + 1}: ${v}`)).join('')}</div>`;
+      h += `<div class="${cls}" style="${cols}"><div class="name"></div><div class="arrow">↓ × ${fmtN(Math.round(P.med))} / ${P.rs[r]}, then log1p</div></div>`;
+      h += `<div class="${cls}" style="${cols}"><div class="name">log1p(CPMedian)</div>${norm.map((v, j) => cell(v / mxN, v.toFixed(1), `Clone ${j + 1}: ${v.toFixed(3)}`)).join('')}</div></div>`;
+      const ev = P.lam.map(l => P.tr ? l / P.tr : 0), emx = Math.max(1e-9, ...ev), sc = P.rows[r], smx = Math.max(1e-9, ...Array.from(sc, Math.abs));
+      h += `<div class="pc-grid"><div><div class="eyebrow">Variance explained per PC</div><div class="bars">${ev.map((v, a) => `<div class="bar" title="PC${a + 1}: ${(100 * v).toFixed(1)}%"><i style="height:${(100 * v / emx).toFixed(1)}%"></i><span>${a + 1}</span></div>`).join('')}</div></div>
+    <div><div class="eyebrow">PC scores of ${pill(r)}</div><div class="bars sym">${Array.from(sc, (v, a) => `<div class="bar" title="PC${a + 1}: ${v.toFixed(2)}"><i class="${v < 0 ? 'neg' : ''}" style="height:${(50 * Math.abs(v) / smx).toFixed(1)}%"></i><span>${a + 1}</span></div>`).join('')}</div></div></div></div>`;
+      return h;
+    }
+    function glmStatus() {
+      const g = S.glm; if (!g) return ''; const l = g.losses[g.losses.length - 1] ?? g.L0;
+      return `iteration <b>${g.t}</b> · loss <b>${l.toFixed(3)}</b> nats/neighbor · deviance explained <b>${(100 * explained(g)).toFixed(1)}%</b>`;
+    }
+
+    function renderPanel() {
+      const st = STEPS[S.step].key, P = $('#panel'), D = S.data; let h = '';
+      const head = (n, t) => `<div class="eyebrow">Step ${n}</div><h3>${t}</h3>`;
+      const need = min => D.m < min ? `<div class="card empty">This step needs at least ${min} clones. Open <b>Edit dataset</b> above and add some.</div>` : '';
+      if (st === 'graph') {
+        let same = 0, own = 0, tot = 0; for (let i = 0; i < D.n; i++)for (let t = 0; t < D.k; t++) { const j = D.nbr[i * D.k + t]; tot++; if (D.lab[i] === D.lab[j]) own++; if (D.ctype[D.lab[i]] === D.ctype[D.lab[j]]) same++; }
+        h = `<div class="card prose">${head(0, 'Construct a kNN graph')}
+      <p>Connect each selected cell to its <i>k</i> nearest selected cells in expression space. Unlabeled cells are dropped, so every edge links two cells whose clone is known.</p>
+      <p><i>k</i> sets the scale of a neighborhood. Small <i>k</i> reads fine local structure but gives noisy counts; large <i>k</i> averages over wider regions and blurs shapes together.</p></div>
+      <div class="card controls"><div class="ctl"><label for="kSlider">k</label><input type="range" id="kSlider" min="2" max="30" value="${S.k}"><b class="mono" id="kVal">${S.k}</b></div>
+      <span class="stat"><b>${fmtN(D.n)}</b> cells · <b>${fmtN(tot)}</b> directed edges · <b>${tot ? (100 * own / tot).toFixed(0) : 0}%</b> within one clone · <b>${tot ? (100 * same / tot).toFixed(0) : 0}%</b> within one shape</span></div>`;
+      } else if (st === 'counts') {
+        h = need(1) || `<div class="card prose">${head(1, 'Count clone identities in each neighborhood')}
+      <p>For every cell of a clone, look at its <i>k</i> neighbors and record which clone each neighbor belongs to. Summed over the clone's cells, this gives one row of the matrix: how often that clone's cells sit next to every clone, itself included.</p>
+      <p>Each clone is now described by a vector over clone identities instead of over genes. Clones drawn from the same shape share neighborhoods, so they light up together as blocks. Rows have different totals because bigger clones collect more neighbors, so the comparison is about proportions.</p></div>
+      ${formulaHTML()}
+      <div class="card">${matrixView()}
+      <div class="controls">${fracSeg()}<span class="stat">row total = ${D.k} × cells in clone</span></div>
+      <div class="controls" style="padding-top:0">${cbarHTML()}</div></div>`;
+      } else if (st === 'reduce') {
+        if (S.method === 'glm') {
+          const ks = [2, 3, 6, 10].filter(v => v < Math.max(3, D.m)); if (!ks.includes(S.glmK)) S.glmK = ks.includes(6) ? 6 : (ks[ks.length - 1] || 2);
+          h = need(2) || `<div class="card prose">${head(2, 'Reduce the matrix: multinomial GLM-PCA')}
+        <div>${methodSeg('methSeg')}</div>
+        <p>Each row is a multinomial sample: its total number of neighbors is fixed, and what matters is how they split across clones. GLM-PCA fits <span class="mono">softmax(C·W + b)</span> to those proportions by minimizing the multinomial negative log-likelihood of the observed counts.</p>
+        <p><b>C</b> (clones × k) is the clone2vec embedding: one point per clone. <b>W</b> (k × clones) gives how each neighbor clone loads on each factor. <b>b</b> holds overall neighbor frequencies, so the factors only explain how a clone deviates from the average neighborhood.</p>
+        <p class="small muted">Compared with PCA: a row built from 300 neighbors carries more evidence than one built from 30 and is weighted accordingly, and zero counts need no pseudo-count.</p></div>
+        <div class="card controls"><div class="ctl"><label>Factors k</label><div class="seg" id="kSeg">${ks.map(v => `<button data-v="${v}" aria-pressed="${S.glmK === v}">${v}</button>`).join('')}</div></div>
+        <button class="btn" id="refit">Refit from random start</button><span class="stat" id="glmStat">${glmStatus()}</span></div>
+        <div id="glmViz">${glmVizHTML()}</div>`;
+        } else {
+          const ks = [2, 5, 10, 20].filter(v => v < D.m); if (!ks.includes(S.pcaK)) S.pcaK = ks.includes(10) ? 10 : (ks[ks.length - 1] || 2);
+          if (D.m >= 2 && (!S.pca || S.pca.k !== Math.min(S.pcaK, D.m - 1))) S.pca = pcaFit(D.M, Math.min(S.pcaK, D.m - 1));
+          h = need(2) || `<div class="card prose">${head(2, 'Reduce the matrix: PCA on log1p(CPMedian)')}
+        <div>${methodSeg('methSeg')}</div>
+        <p>The standard single-cell recipe, applied to the clone × clone neighbor-count matrix: scale every row to the median row total (CPMedian, here ${fmtN(Math.round(S.pca ? S.pca.med : 0))} neighbors), take <span class="mono">log1p</span>, center, and keep the top principal components.</p>
+        <p>A clone is now described by which clones it co-occurs with, not by the exact positions of its cells, which is why this works where E-distance mixes the crosses. Its weak spot is tiny clones: a row built from a handful of neighbors is mostly zeros, yet after normalization it counts as much as a row built from hundreds. Load <b>Extreme</b> and compare the t-SNE in step 3: PCA gathers the tiny clones of every shape into one central blob, GLM-PCA places them with their shape.</p></div>
+        <div class="card controls"><div class="ctl"><label>PCs</label><div class="seg" id="pcaKSeg">${ks.map(v => `<button data-v="${v}" aria-pressed="${S.pcaK === v}">${v}</button>`).join('')}</div></div>
+        <span class="stat">${S.pca ? `top ${S.pca.k} PCs explain <b>${(100 * S.pca.evr).toFixed(0)}%</b> of variance` : ''}</span></div>
+        <div id="pcaViz">${pcaVizHTML()}</div>`;
+        }
+      } else if (isEmbStep(st)) {
+        const counts = TYPES.map((_, t) => S.ds.counts[t]), pca = S.method === 'pca';
+        h = `<div class="card prose">${head(3, 't-SNE of the reduced clones')}
+      <div>${methodSeg('methSeg2')}</div>
+      <p>${pca ? `The top ${Math.min(S.pcaK, Math.max(1, D.m - 1))} PCs of the log1p(CPMedian) matrix` : `The ${Math.min(S.glmK, Math.max(1, D.m - 1))} GLM-PCA factors (the clone2vec embedding C)`} of all ${D.m} clones, laid out in 2D with t-SNE. Colors show the hidden shape, which the method never sees. Switch the reduction above to compare the two on the same clones.</p>
+      <p class="small muted">Crosses form a continuum ordered by angle that wraps around (75° sits next to 0°), and rings separate by radius.</p></div>
+      ${D.m < 30 ? `<div class="card controls"><span class="small">Few clones make a sparse embedding.</span><button class="btn primary" id="loadBig">Load the Easy example</button></div>` : ''}
+      <div class="card controls"><span class="stat">k = ${D.k} (set in step 0)</span><button class="btn" id="rerun">Refit from random start</button></div>
+      ${D.m ? `<div class="card inset-card"><canvas id="inset"></canvas><div id="insetInfo" style="display:grid;gap:8px;align-content:start"></div></div>` : ''}
+      <div class="card"><div style="padding:12px 14px 0"><div class="eyebrow">Hidden shapes · click to select all clones of a shape</div></div>
+      <div class="thumbs">${TYPES.map((t, i) => `<button class="thumb ${counts[i] ? '' : 'none'}" data-t="${i}" aria-pressed="false"><canvas data-t="${i}"></canvas><span><b style="color:${TYPE_COLORS[i]}">${i}</b> · ${t.name} ×${counts[i]}</span></button>`).join('')}</div></div>`;
+      }
+      P.innerHTML = h; bindPanel(st);
+      if (isEmbStep(st)) { drawThumbs(); drawInset(); syncThumbs(); }
+      if (st === 'counts') drawHeat();
+    }
+    function renderFoot() {
+      const st = STEPS[S.step].key, F = $('#stageFoot'), D = S.data;
+      $('#stageTitle').textContent = STEPS[S.step].label;
+      const meta = { graph: `k = ${D.k}`, counts: `k = ${D.k}`, reduce: S.method === 'pca' ? 'PC1 vs PC2' : 'factor space (C1, C2)', embed: S.method === 'pca' ? 't-SNE of PCs' : 't-SNE of C' }[st];
+      $('#stageMeta').textContent = meta;
+      if (st === 'reduce') F.innerHTML = (S.method === 'glm' ? '<canvas id="loss"></canvas>' : '') + '<span>Click a point to inspect its row. Clones drawn from the same shape should land together.</span>';
+      else if (isEmbStep(st)) F.innerHTML = `<span id="bigStatus">${curStatus()}</span><span>Drag to lasso clones · Shift adds · click picks one · Esc clears</span><div class="legend">${TYPES.map((t, i) => S.ds.counts[i] ? `<span><i class="sw" style="background:${TYPE_COLORS[i]}"></i> ${i} ${t.name}</span>` : '').join('')}</div>`;
+      else if (st === 'counts' && D.m) {
+        const { ca, cb } = pairColors(), pe = pairEdges();
+        F.innerHTML = `<div class="legend"><span><i class="sw" style="background:${ca}"></i> Clone ${S.focus + 1} (row): all ${D.sizes[S.focus]} cells</span>` +
+          (S.col != null ? `<span><i class="sw" style="background:${cb}"></i> Clone ${S.col + 1} (column): ${pe.nb} cells that are neighbors, ringed</span><span>━ ${pe.e} edges = the number in the cell</span>` : '') + `</div>`;
+      }
+      else F.innerHTML = legendHTML();
+      if (st === 'reduce' && S.method === 'glm') drawLoss();
+    }
+    function renderSteps() {
+      $('#steps').innerHTML = STEPS.map((s, i) => `<button data-i="${i}" ${i === S.step ? 'aria-current="step"' : ''}><span class="n">${i}</span>${s.label}</button>`).join('');
+      const p = $('#prev'), n = $('#next');
+      p.disabled = S.step === 0; p.textContent = S.step > 0 ? `← ${STEPS[S.step - 1].label}` : '← Back';
+      n.disabled = S.step === STEPS.length - 1; n.textContent = S.step < STEPS.length - 1 ? `${STEPS[S.step + 1].label} →` : 'Done';
+    }
+    function render() { renderSteps(); renderPanel(); renderFoot(); $('#stage').classList.toggle('lasso', isEmbStep(STEPS[S.step].key)); drawStage(); }
+    function restartJobs() {
+      const st = STEPS[S.step].key;
+      if (st === 'reduce' && S.method === 'glm' && !S.glm && S.data.m >= 2) fitToy();
+      if (isEmbStep(st) && (!S.emb || !S.emb.done)) runEmbed();
+    }
+    function go(i) {
+      if (i < 0 || i >= STEPS.length) return; S.step = i; S.run++;
+      if (STEPS[i].key === 'reduce' && S.glm && !S.glm.done) S.glm = null;
+      render(); restartJobs();
+    }
+
+    /* ---------------- events ---------------- */
+    function bindPanel(st) {
+      const on = (sel, ev, fn) => { const el = $(sel); if (el) el.addEventListener(ev, fn); };
+      on('#kSlider', 'input', e => { $('#kVal').textContent = e.target.value; });
+      on('#kSlider', 'change', e => { S.k = +e.target.value; rebuildGraph(); renderPanel(); renderFoot(); drawStage(); const s = $('#kSlider'); if (s) s.focus(); });
+      const vupd = (live) => {
+        const a = $('#vminR'), b = $('#vmaxR'); if (!a) return; let lo = +a.value, hi = +b.value;
+        if (hi <= lo) { if (document.activeElement === a) { hi = lo + (+a.step); b.value = hi; } else { lo = Math.max(0, hi - (+a.step)); a.value = lo; } }
+        S.vlim[S.frac ? 'frac' : 'counts'] = [lo, hi]; const f = v => S.frac ? v.toFixed(2) : String(Math.round(v));
+        $('#vminO').textContent = f(lo); $('#vmaxO').textContent = f(hi); $('#cbLo').textContent = (lo > 0 ? '≤ ' : '') + f(lo); $('#cbHi').textContent = (hi < heatRange().dataMax ? '≥ ' : '') + f(hi);
+        const au = $('#vAuto'); if (au) au.disabled = false;
+        if ($('#heat')) drawHeat(); else if (!live) renderPanel();
+      };
+      on('#vminR', 'input', () => vupd(true)); on('#vmaxR', 'input', () => vupd(true));
+      on('#vminR', 'change', () => vupd(false)); on('#vmaxR', 'change', () => vupd(false));
+      on('#vAuto', 'click', () => { S.vlim[S.frac ? 'frac' : 'counts'] = null; renderPanel(); });
+      on('#fracSeg', 'click', e => { const b = e.target.closest('button'); if (!b) return; S.frac = b.dataset.v === '1'; if (S.hc) runClustering('ward'); renderPanel(); drawStage(); });
+      on('#doCluster', 'click', () => { runClustering('ward'); renderPanel(); });
+      on('#unCluster', 'click', () => { S.hc = null; S.zoom = null; S.zoomStack = []; renderPanel(); });
+      const tbl = $('table.cm');
+      if (tbl) tbl.addEventListener('click', e => {
+        const c = e.target.closest('[data-r],[data-c]'); if (!c) return;
+        if (c.dataset.r !== undefined) S.focus = +c.dataset.r;
+        if (c.dataset.c !== undefined) S.col = +c.dataset.c;
+        selectionChanged();
+      });
+      const hc = $('#heat');
+      if (hc) {
+        const pos = e => { const r = hc.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+        hc.addEventListener('pointerdown', e => { const [x, y] = pos(e); S.heatDrag = { x0: x, y0: y, x1: x, y1: y, moved: false }; hc.setPointerCapture(e.pointerId); });
+        hc.addEventListener('pointermove', e => {
+          const [x, y] = pos(e), d = S.heatDrag;
+          if (d) { d.x1 = x; d.y1 = y; if (Math.hypot(x - d.x0, y - d.y0) > 6) d.moved = true; if (d.moved) { drawHeat(); return; } }
+          const c = heatCell(x, y), info = $('#heatInfo'); if (c && c.inside && info) info.innerHTML = heatInfo(c.i, c.j);
+        });
+        hc.addEventListener('pointerup', e => {
+          const d = S.heatDrag; S.heatDrag = null; if (!d) return;
+          if (d.moved) {
+            const a = heatCell(Math.min(d.x0, d.x1), Math.min(d.y0, d.y1)), b = heatCell(Math.max(d.x0, d.x1), Math.max(d.y0, d.y1));
+            const z = { r0: a.r, r1: Math.max(b.r + 1, a.r + 2), c0: a.c, c1: Math.max(b.c + 1, a.c + 2) }, m = S.data.m; z.r1 = Math.min(z.r1, m); z.c1 = Math.min(z.c1, m);
+            S.zoomStack.push(S.zoom); S.zoom = z; renderPanel(); return;
+          }
+          const c = heatCell(d.x0, d.y0); if (!c || !c.inside) { drawHeat(); return; } S.focus = c.i; S.col = c.j; selectionChanged();
+        });
+        hc.addEventListener('pointercancel', () => { S.heatDrag = null; drawHeat(); });
+        hc.addEventListener('pointerleave', () => { const info = $('#heatInfo'); if (info && S.col != null) info.innerHTML = heatInfo(S.focus, S.col); });
+        hc.addEventListener('dblclick', () => { if (S.zoom) { S.zoom = S.zoomStack.pop() ?? null; renderPanel(); } });
+      }
+      on('#zoomOut', 'click', () => { S.zoom = S.zoomStack.pop() ?? null; renderPanel(); });
+      on('#zoomReset', 'click', () => { S.zoom = null; S.zoomStack = []; renderPanel(); });
+      on('#kSeg', 'click', e => { const b = e.target.closest('button'); if (!b) return; S.glmK = +b.dataset.v; S.run++; S.glm = null; S.embs.glm = null; renderPanel(); fitToy(); });
+      on('#refit', 'click', () => { S.run++; S.glm = null; S.refits++; fitToy(); });
+      on('#glmViz', 'click', e => { const c = e.target.closest('[data-row]'); if (!c) return; S.sel = +c.dataset.row; refreshRowViz(); drawStage(); });
+      const setMethod = v => { if (v === S.method) return; S.method = v; S.run++; render(); restartJobs(); };
+      ['#methSeg', '#methSeg2'].forEach(id => on(id, 'click', e => { const b = e.target.closest('button'); if (b) setMethod(b.dataset.v); }));
+      on('#pcaKSeg', 'click', e => { const b = e.target.closest('button'); if (!b) return; S.pcaK = +b.dataset.v; S.pca = null; S.embs.pca = null; S.run++; renderPanel(); drawStage(); });
+      on('#rerun', 'click', () => { S.refits++; S.emb = null; S.run++; runEmbed(); });
+      on('#loadBig', 'click', () => loadPreset(2));
+      document.querySelectorAll('.thumb').forEach(t => t.addEventListener('click', e => {
+        const v = +t.dataset.t, D = S.data;
+        const all = D.ctype.map((x, i) => x === v ? i : -1).filter(i => i >= 0);
+        const same = all.length && all.length === S.selClones.size && all.every(i => S.selClones.has(i));
+        if (e.shiftKey) all.forEach(i => S.selClones.add(i)); else S.selClones = same ? new Set() : new Set(all);
+        syncThumbs(); drawStage(); drawInset();
+      }));
+    }
+    function selectionChanged() {
+      // keep the scroll position: only the formula, matrix highlight and stage change
+      const f = $('#formula'); const card = f ? f.closest('.card') : null;
+      if (card) { const tmp = document.createElement('div'); tmp.innerHTML = formulaHTML(); card.replaceWith(tmp.firstElementChild); }
+      if (perClone()) { const tw = $('.tbl-wrap'), sx = tw ? tw.scrollLeft : 0; renderPanel(); const t2 = $('.tbl-wrap'); if (t2) t2.scrollLeft = sx; }
+      else { drawHeat(); const info = $('#heatInfo'); if (info) info.innerHTML = heatInfo(S.focus, S.col); }
+      renderFoot(); drawStage();
+    }
+    $('#steps').addEventListener('click', e => { const b = e.target.closest('button'); if (b) go(+b.dataset.i); });
+    $('#prev').addEventListener('click', () => go(S.step - 1));
+    $('#next').addEventListener('click', () => go(S.step + 1));
+    document.addEventListener('keydown', e => { if (e.target.closest('input,textarea,select')) return; if (e.key === 'ArrowRight') go(S.step + 1); if (e.key === 'ArrowLeft') go(S.step - 1); });
+    const stage = $('#stage');
+    const spos = e => { const r = stage.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    function nearest(x, y) { let best = -1, bd = 225; if (S.hits) for (const h of S.hits) { const d = (h[0] - x) ** 2 + (h[1] - y) ** 2; if (d < bd) { bd = d; best = h[2]; } } return best; }
+    function inPoly(x, y, P) {
+      let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+        const [xi, yi] = P[i], [xj, yj] = P[j];
+        if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c;
+      } return c;
+    }
+    const isEmbed = () => isEmbStep(STEPS[S.step].key) && S.emb && S.emb.Y;
+    stage.addEventListener('pointerdown', e => { if (!isEmbed()) return; S.lasso = [spos(e)]; S.lassoShift = e.shiftKey; stage.setPointerCapture(e.pointerId); e.preventDefault(); });
+    stage.addEventListener('pointermove', e => {
+      const [x, y] = spos(e), st = STEPS[S.step].key;
+      if (S.lasso) { const L = S.lasso, [lx, ly] = L[L.length - 1]; if (Math.hypot(x - lx, y - ly) > 3) { L.push([x, y]); drawStage(); } return; }
+      const best = nearest(x, y); stage.style.cursor = isEmbed() ? 'crosshair' : (best >= 0 ? 'pointer' : 'default');
+      if (isEmbStep(st) && best >= 0 && best !== S.hover) { S.hover = best; drawStage(); if (!S.selClones.size) drawInset(); }
+    });
+    stage.addEventListener('pointerup', e => {
+      if (!S.lasso) return; const L = S.lasso; S.lasso = null;
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; for (const [x, y] of L) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+      const add = S.lassoShift || e.shiftKey;
+      if (L.length < 3 || (x1 - x0 < 6 && y1 - y0 < 6)) {
+        const b = nearest(...L[0]);
+        if (b < 0) { if (!add) S.selClones = new Set(); }
+        else if (add) { S.selClones.has(b) ? S.selClones.delete(b) : S.selClones.add(b); }
+        else S.selClones = new Set([b]);
+      }
+      else { const hit = S.hits.filter(h => inPoly(h[0], h[1], L)).map(h => h[2]); S.selClones = add ? new Set([...S.selClones, ...hit]) : new Set(hit); }
+      syncThumbs(); drawStage(); drawInset();
+    });
+    stage.addEventListener('pointercancel', () => { S.lasso = null; drawStage(); });
+    stage.addEventListener('click', e => { if (STEPS[S.step].key !== 'reduce') return; const b = nearest(...spos(e)); if (b >= 0) { S.sel = b; refreshRowViz(); drawStage(); } });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && isEmbStep(STEPS[S.step].key) && S.selClones.size) { S.selClones = new Set(); syncThumbs(); drawStage(); drawInset(); } });
+
+    /* ---------------- runners ---------------- */
+    async function fitToy() {
+      const my = S.run, D = S.data; if (D.m < 2) return;
+      const g = glmInit(D.M, S.glmK, S.seed + S.glmK * 101 + S.refits * 7); g.maxIt = 500; S.glm = g;
+      const chunk = D.m > 150 ? 4 : 10;
+      while (g.t < g.maxIt) {
+        for (let c = 0; c < chunk && g.t < g.maxIt; c++)glmStep(g, 0.05 * (1 / (1 + g.t / 400)));
+        if (my !== S.run || STEPS[S.step].key !== 'reduce' || S.method !== 'glm') return;
+        drawStage(); drawLoss(); const vz = $('#glmViz'); if (vz) vz.innerHTML = glmVizHTML(); const gs = $('#glmStat'); if (gs) gs.innerHTML = glmStatus();
+        await tick(16);
+        if (my !== S.run) return;
+      }
+      g.done = true;
+    }
+    function setStatus(t, key = embKey()) { S.statusBy = S.statusBy || {}; S.statusBy[key] = t; if (key !== embKey()) return; const el = $('#bigStatus'); if (el) el.textContent = t; }
+    const curStatus = () => (S.statusBy || {})[embKey()] || '';
+    /* PCA on log1p(CPMedian)-normalized clone × clone counts; top-k scores via subspace iteration */
+    function pcaFit(M, k) {
+      const m = M.length, p = m ? M[0].length : 0, rs = M.map(r => r.reduce((a, b) => a + b, 0)), srt = [...rs].sort((a, b) => a - b), med = srt[srt.length >> 1] || 1;
+      const X = M.map((r, i) => Float64Array.from(r, v => rs[i] ? Math.log1p(v / rs[i] * med) : 0)), mu = new Float64Array(p);
+      for (const r of X) for (let j = 0; j < p; j++)mu[j] += r[j] / m; for (const r of X) for (let j = 0; j < p; j++)r[j] -= mu[j];
+      const C = new Float64Array(p * p); let tr = 0;
+      for (const r of X) for (let a = 0; a < p; a++) { const v = r[a]; if (!v) continue; for (let b = a; b < p; b++)C[a * p + b] += v * r[b]; }
+      for (let a = 0; a < p; a++) { tr += C[a * p + a]; for (let b = a + 1; b < p; b++)C[b * p + a] = C[a * p + b]; }
+      const R = rng(77); let Q = Array.from({ length: k }, () => Float64Array.from({ length: p }, () => gauss(R)));
+      const orth = V => {
+        for (let a = 0; a < V.length; a++) {
+          for (let b = 0; b < a; b++) { let d = 0; for (let j = 0; j < p; j++)d += V[a][j] * V[b][j]; for (let j = 0; j < p; j++)V[a][j] -= d * V[b][j]; }
+          let nn = 0; for (let j = 0; j < p; j++)nn += V[a][j] * V[a][j]; nn = Math.sqrt(nn) || 1; for (let j = 0; j < p; j++)V[a][j] /= nn;
+        } return V;
+      };
+      const mul = q => { const z = new Float64Array(p); for (let a = 0; a < p; a++) { let s = 0; const o = a * p; for (let b = 0; b < p; b++)s += C[o + b] * q[b]; z[a] = s; } return z; };
+      orth(Q); for (let it = 0; it < 60; it++)Q = orth(Q.map(mul));
+      const lam = Q.map(q => { const z = mul(q); let s = 0; for (let j = 0; j < p; j++)s += z[j] * q[j]; return s; });
+      const idx = lam.map((_, i) => i).sort((a, b) => lam[b] - lam[a]); Q = idx.map(i => Q[i]);
+      const rows = X.map(r => Float64Array.from(Q, q => { let s = 0; for (let j = 0; j < p; j++)s += r[j] * q[j]; return s; }));
+      return { rows, k, X, mu, med, rs, lam: idx.map(i => lam[i]), tr, evr: tr ? idx.reduce((s, i) => s + lam[i], 0) / tr : 0 };
+    }
+    const setStatusK = (key, t) => setStatus(t, key);
+    async function runEmbed() {
+      const key = embKey(), my = S.run, D = S.data, live = () => my === S.run && embKey() === key;
+      if (D.m < 4) { S.embs[key] = null; setStatusK(key, 'Add at least 4 clones to build an embedding.'); drawStage(); return; }
+      const E = { Y: null, done: false }; S.embs[key] = E; let rows, k, desc;
+      if (key === 'pca') {
+        k = Math.min(S.pcaK || 10, D.m - 1); setStatusK(key, `PCA on ${D.m} × ${D.m} log1p(CPMedian) matrix…`); drawStage(); await tick(20); if (!live()) return;
+        const P = S.pca && S.pca.k === k ? S.pca : (S.pca = pcaFit(D.M, k)); rows = P.rows; desc = `PCA on log1p(CPMedian) · ${k} PCs, ${(100 * P.evr).toFixed(0)}% of variance`;
+      } else {
+        k = Math.min(S.glmK, D.m - 1); const reuse = S.glm && S.glm.done && S.glm.k === k, g = reuse ? S.glm : glmInit(D.M, k, S.seed + 5 + S.refits * 13), its = reuse ? 0 : 300; E.glm = g;
+        for (let it = 0; it < its; it++) {
+          glmStep(g, 0.05 * (1 / (1 + it / 300)));
+          if (it % 20 === 0) { setStatusK(key, `GLM-PCA on ${D.m} × ${D.m} counts · iteration ${it}/${its}`); drawStage(); await tick(); if (!live()) return; }
+        }
+        rows = []; for (let i = 0; i < D.m; i++)rows.push(g.C.slice(i * k, i * k + k)); desc = `GLM-PCA ${k} factors, ${(100 * explained(g)).toFixed(0)}% deviance explained`;
+      }
+      rows = rows.map(l2n);
+      const perp = Math.max(2, Math.min(12, Math.floor((D.m - 1) / 3))), T = tsneInit(rows, perp, S.seed + 9 + S.refits), tits = 700; E.Y = T.Y;
+      for (let it = 0; it < tits; it++) {
+        tsneStep(T);
+        if (it % 10 === 0) { setStatusK(key, `t-SNE iteration ${it}/${tits}`); drawStage(); await tick(8); if (!live()) return; }
+      }
+      E.done = true; drawStage();
+      setStatusK(key, `${D.m} clones · ${fmtN(D.n)} cells · k = ${D.k} · ${desc} · t-SNE perplexity ${perp}`);
+    }
+
+    /* ---------------- simulation overview ---------------- */
+    function simCloneColor(i) { const m = S.data.m; if (m <= 10) return SET_COLORS[i]; if (m <= 20) return TAB20[i]; return `hsl(${(i * 137.508) % 360},68%,${46 + (i % 3) * 7}%)`; }
+    function renderSim() {
+      const D = S.data, ds = S.ds; if (!$('#sim')) return;
+      $('#simPresets').innerHTML = PRESETS.map((p, i) => `<button data-preset="${i}" aria-pressed="${S.preset === i}" title="${p.note}">${p.label}</button>`).join('');
+      const sz = [...D.sizes].sort((a, b) => a - b), mean = sz.length ? sz.reduce((a, b) => a + b, 0) / sz.length : 0;
+      const distTxt = ds.dist === 'fixed' ? `fixed at ${ds.size}` : ds.dist === 'zipf' ? `Zipf a ${ds.a}, ${ds.min}–${ds.max}` : ds.dist === 'uniform' ? `uniform ${ds.min}–${ds.max}` : ds.dist === 'poisson' ? `Poisson λ ${ds.lambda}` : ds.dist === 'bimodal' ? `${ds.frac}% tiny (${ds.smin}–${ds.smax}), rest ${ds.lmin}–${ds.lmax}` : `geometric mean ${ds.mean}`;
+      $('#simStats').innerHTML = `<b>${D.m}</b> clones · <b>${fmtN(D.n)}</b> barcoded cells · sizes ${distTxt}${ds.keep < 100 ? ` · ${ds.keep}% captured` : ''} · median <b>${sz.length ? sz[sz.length >> 1] : 0}</b>, mean <b>${mean.toFixed(1)}</b>`;
+      $('#simShapes').innerHTML = TYPES.map((t, i) => {
+        const ids = D.ctype.map((c, j) => c === i ? j : -1).filter(j => j >= 0), cells = ids.reduce((a, j) => a + D.sizes[j], 0);
+        return `<button class="shape-card ${ids.length ? '' : 'none'}" data-t="${i}" aria-pressed="${S.simShapes.has(i)}"><canvas data-t="${i}"></canvas><span><b style="color:${TYPE_COLORS[i]}">${i}</b> ${t.name}</span><span>${ids.length} clones · ${fmtN(cells)} cells</span></button>`;
+      }).join('');
+      document.querySelectorAll('#simColorSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === S.simColor)));
+      drawSim();
+    }
+    function drawSim() { drawSimMain(); drawSimCards(); drawHist("#simHist"); simInfo(); }
+    function drawSimCards() {
+      const D = S.data; document.querySelectorAll('#simShapes canvas').forEach(c => {
+        const t = +c.dataset.t, cells = []; for (let i = 0; i < D.n; i++)if (D.ctype[D.lab[i]] === t) cells.push(i);
+        drawDisc(c, cells, () => TYPE_COLORS[t], { r: 1.8, stride: 4, bgSize: 1 });
+      });
+    }
+    function drawSimMain() {
+      const D = S.data, cv = $('#simCanvas'); if (!cv) return; const col = colors(), { ctx, w, h } = fitCanvas(cv), M = discMap(w, h, 0.03); S.simGeom = M;
+      drawBg(ctx, D.bg, M, col.cell, w > 420 ? 1.5 : 1.2);
+      const r = Math.max(1.4, Math.min(w / 130, w / 130 * Math.sqrt(800 / Math.max(1, D.n)))), hc = S.simPin ?? S.simHover, sel = S.simShapes, anyShape = sel.size > 0;
+      const colorOf = i => S.simColor === 'clone' ? simCloneColor(D.lab[i]) : TYPE_COLORS[D.ctype[D.lab[i]]];
+      const sq = (i, rr, c) => { ctx.fillStyle = c; ctx.fillRect(M.X(D.xs[i]) - rr, M.Y(D.ys[i]) - rr, 2 * rr, 2 * rr); };
+      if (hc != null) {
+        for (let i = 0; i < D.n; i++)if (D.lab[i] !== hc) sq(i, Math.max(1, r * 0.55), col.cellDot);
+        const hl = S.simColor === 'clone' ? simCloneColor(hc) : TYPE_COLORS[D.ctype[hc]];
+        for (let i = D.start[hc]; i < D.start[hc + 1]; i++)dot(ctx, M.X(D.xs[i]), M.Y(D.ys[i]), Math.max(3, r * 1.4), hl, col.stroke, 1);
+        return;
+      }
+      const on = i => !anyShape || sel.has(D.ctype[D.lab[i]]);
+      if (anyShape) for (let i = 0; i < D.n; i++)if (!on(i)) sq(i, Math.max(1, r * 0.55), col.cellDot);
+      for (let i = 0; i < D.n; i++) {
+        if (!on(i)) continue;
+        if (r > 2.4) dot(ctx, M.X(D.xs[i]), M.Y(D.ys[i]), r, colorOf(i), col.stroke, 0.6); else { ctx.beginPath(); ctx.arc(M.X(D.xs[i]), M.Y(D.ys[i]), r, 0, 6.2832); ctx.fillStyle = colorOf(i); ctx.fill(); }
+      }
+    }
+    function simInfo() {
+      const el = $('#simInfo'), D = S.data, c = S.simPin ?? S.simHover; if (!el) return;
+      if (c == null && S.simBin != null && S.simBinInfo) { el.textContent = S.simBinInfo; return; }
+      if (c == null) { el.innerHTML = S.simShapes.size ? `${[...S.simShapes].map(t => TYPES[t].name).join(', ')} highlighted · hover a cell to highlight its clone` : 'Hover a cell to highlight its clone · click to pin it'; return; }
+      const pc = S.simColor === 'clone' ? simCloneColor(c) : TYPE_COLORS[D.ctype[c]];
+      el.innerHTML = `<span class="pill" style="background:${pc};color:#fff;text-shadow:0 0 2px rgba(0,0,0,.5)">Clone ${c + 1}</span> ${TYPES[D.ctype[c]].name} · ${D.sizes[c]} cells${S.simPin != null ? (S.simBin != null && S.simBinInfo ? ` · ${S.simBinInfo}` : ' · pinned, click empty space to release') : ''}`;
+    }
+    (function bindSim() {
+      const cv = $('#simCanvas'), pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+      const near = (x, y) => {
+        const D = S.data, M = S.simGeom; if (!M) return null; let best = null, bd = 100;
+        for (let i = 0; i < D.n; i++) { const dx = M.X(D.xs[i]) - x, dy = M.Y(D.ys[i]) - y, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = i; } } return best == null ? null : D.lab[best];
+      };
+      cv.addEventListener('pointermove', e => { const c = near(...pos(e)); if (c !== S.simHover) { S.simHover = c; if (S.simPin == null) { drawSimMain(); simInfo(); } } });
+      cv.addEventListener('pointerleave', () => { if (S.simHover != null) { S.simHover = null; if (S.simPin == null) { drawSimMain(); simInfo(); } } });
+      cv.addEventListener('click', e => { const c = near(...pos(e)); S.simPin = c != null && c !== S.simPin ? c : null; if (S.simBin != null) { S.simBin = null; drawHist('#simHist'); } drawSimMain(); simInfo(); });
+      $('#simColorSeg').addEventListener('click', e => {
+        const b = e.target.closest('button'); if (!b) return; S.simColor = b.dataset.v;
+        document.querySelectorAll('#simColorSeg button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.v === S.simColor))); drawSimMain(); simInfo();
+      });
+      $('#simShapes').addEventListener('click', e => {
+        const b = e.target.closest('.shape-card'); if (!b) return; const t = +b.dataset.t;
+        if (e.shiftKey) { S.simShapes.has(t) ? S.simShapes.delete(t) : S.simShapes.add(t); }
+        else S.simShapes = S.simShapes.size === 1 && S.simShapes.has(t) ? new Set() : new Set([t]);
+        S.simPin = null; if (S.simBin != null) { S.simBin = null; drawHist('#simHist'); } document.querySelectorAll('#simShapes .shape-card').forEach(x => x.setAttribute('aria-pressed', String(S.simShapes.has(+x.dataset.t)))); drawSimMain(); simInfo();
+      });
+      $('#simPresets').addEventListener('click', e => { const b = e.target.closest('button'); if (b) loadPreset(+b.dataset.preset); });
+      const hc = $('#simHist'); hc.style.cursor = 'pointer';
+      hc.addEventListener('click', e => {
+        const G = S.histGeom && S.histGeom['#simHist'], D = S.data; if (!G || !D.m) return;
+        const r = hc.getBoundingClientRect(), bin = Math.max(0, Math.min(G.nb - 1, Math.floor((e.clientX - r.left - 1) / G.gw)));
+        const a = G.lo + bin * G.bw, b = a + G.bw, inBin = i => D.sizes[i] >= a - 1e-9 && D.sizes[i] < b - 1e-9;
+        let ids = [...Array(D.m).keys()].filter(inBin);
+        if (S.simShapes.size) { const f = ids.filter(i => S.simShapes.has(D.ctype[i])); if (f.length) ids = f; }
+        if (!ids.length) { S.simBin = bin; S.simPin = null; S.simBinInfo = `No clones with ${Math.ceil(a)}–${Math.ceil(b) - 1} cells`; drawHist('#simHist'); drawSimMain(); simInfo(); return; }
+        S.simBinIdx = S.simBin === bin ? ((S.simBinIdx || 0) + 1) % ids.length : Math.floor(Math.random() * ids.length); S.simBin = bin;
+        S.simPin = ids[S.simBinIdx]; const lo = Math.ceil(a), hi = Math.ceil(b) - 1;
+        S.simBinInfo = `${S.simBinIdx + 1} of ${ids.length} clones with ${lo === hi ? lo : lo + '–' + hi} cells · click the bar again for the next`;
+        drawHist('#simHist'); drawSimMain(); simInfo();
+      });
+    })();
+
+    /* ---------------- helpers ---------------- */
+    function l2n(r) { let q = 0; for (const v of r) q += v * v; q = Math.sqrt(q) || 1; return Float64Array.from(r, v => v / q); }
+
+    /* ---------------- E-distance baseline ---------------- */
+    function edReset() {
+      S.ed = null; S.edRun = (S.edRun || 0) + 1; S.edPair = null; S.edSel = new Set(); S.edLasso = null; S.edZoom = null; S.edZoomStack = []; S.edHc = null; S.edVlim = null; S.edHover = null;
+      if (document.getElementById('edBox')) setTimeout(edRunIfOpen, 0);
+    }
+    function edRunIfOpen() { const b = $('#edBox'); edControls(); if (b && b.open && !S.ed) edCompute(); else edDraw(); }
+    async function edCompute() {
+      if (S.edBusy === S.edRun) return; S.edBusy = S.edRun;
+      const my = S.edRun, D = S.data, m = D.m, live = () => my === S.edRun;
+      const st = t => { const e = $('#edStatus'); if (e) e.textContent = t; };
+      if (m < 2) { S.ed = { E: null, m }; st('Add at least two clones.'); edDraw(); return; }
+      const xs = D.xs, ys = D.ys, start = D.start, W = new Float64Array(m), E = new Float64Array(m * m);
+      const mean = (a, b) => {
+        let s = 0; const a0 = start[a], a1 = start[a + 1], b0 = start[b], b1 = start[b + 1];
+        for (let i = a0; i < a1; i++) { const x = xs[i], y = ys[i]; for (let j = b0; j < b1; j++) { const dx = x - xs[j], dy = y - ys[j]; s += Math.sqrt(dx * dx + dy * dy); } }
+        return s / ((a1 - a0) * (b1 - b0));
+      };
+      st('Computing within-clone distances…');
+      for (let a = 0; a < m; a++)W[a] = mean(a, a);
+      let t0 = performance.now();
+      for (let a = 0; a < m; a++) {
+        for (let b = a + 1; b < m; b++) { const v = Math.max(0, 2 * mean(a, b) - W[a] - W[b]); E[a * m + b] = E[b * m + a] = v; }
+        if (performance.now() - t0 > 30) { st(`E-distance: clone ${a + 1} of ${m}`); await tick(); if (!live()) return; t0 = performance.now(); }
+      }
+      const ed = { E, m, Y: null, done: false }; S.ed = ed; edControls(); edDraw();
+      if (m < 4) { st('Add at least 4 clones for a t-SNE.'); return; }
+      const perp = Math.max(2, Math.min(12, Math.floor((m - 1) / 3))), T = tsneFromD(E, m, perp, S.seed + 21), its = 700; ed.Y = T.Y; ed.perp = perp;
+      for (let it = 0; it < its; it++) { tsneStep(T); if (it % 10 === 0) { st(`t-SNE iteration ${it}/${its}`); edDrawTsne(); await tick(8); if (!live()) return; } }
+      ed.done = true; edDraw();
+    }
+    function edRange() {
+      const ed = S.ed; let mx = 0, med = 0;
+      if (ed && ed.E) {
+        for (const v of ed.E) mx = Math.max(mx, v);
+        if (ed.med == null) { const off = []; for (let i = 0; i < ed.m; i++)for (let j = i + 1; j < ed.m; j++)off.push(ed.E[i * ed.m + j]); off.sort((a, b) => a - b); ed.med = off.length ? off[off.length >> 1] : mx; } med = ed.med;
+      }
+      const L = S.edVlim; let vmin = L ? L[0] : 0, vmax = L ? L[1] : med; if (vmax <= vmin) vmax = vmin + 1e-3; return { vmin, vmax, dataMax: mx, auto: !L, t: v => 1 - (v - vmin) / (vmax - vmin) };
+    }
+    function edOrder() { const m = S.data.m; return S.edHc && S.edHc.n === m ? S.edHc.order : Array.from({ length: m }, (_, i) => i); }
+    function edControls() {
+      const ed = S.ed, ok = ed && ed.E, m = S.data.m;
+      const sum = $('#edSum'); if (sum) sum.innerHTML = ok ? `· ${m} × ${m}` : '';
+      const c = $('#edCluster'); if (c) { c.disabled = !ok || m < 2; c.textContent = S.edHc ? 'Re-cluster' : 'Perform hierarchical clustering'; c.classList.toggle('primary', !S.edHc); }
+      const u = $('#edUncluster'); if (u) u.disabled = !S.edHc; const z = $('#edZoomOut'); if (z) z.disabled = !S.edZoom;
+      const meta = $('#edMeta'); if (meta) meta.textContent = S.edZoom ? `rows ${S.edZoom.r0 + 1}–${S.edZoom.r1} × cols ${S.edZoom.c0 + 1}–${S.edZoom.c1}` : (S.edHc ? 'Ward linkage' : 'ordered by shape');
+      const R = edRange(), f = v => v.toFixed(3), top = Math.max(1e-3, Math.ceil(R.dataMax * 1000) / 1000), stp = Math.max(0.001, +(top / 200).toFixed(3));
+      const grad = [1, .75, .5, .25, 0].map(t => rgbCss(coolwarm(t))).join(',');
+      const cb = $('#edCbar'); if (cb) cb.innerHTML = ok ? `<div class="cbar-wrap">
+    <div class="prm"><label for="edMin">vmin</label><input type="range" id="edMin" min="0" max="${top}" step="${stp}" value="${R.vmin}"><output id="edMinO">${f(R.vmin)}</output></div>
+    <div class="prm"><label for="edMax">vmax</label><input type="range" id="edMax" min="0" max="${top}" step="${stp}" value="${Math.min(R.vmax, top)}"><output id="edMaxO">${f(R.vmax)}</output></div>
+    <div class="cbar"><span id="edLo">${f(R.vmin)} similar</span><i style="background:linear-gradient(90deg,${grad})"></i><span id="edHi">≥ ${f(R.vmax)} far</span>
+    <button class="btn sm" id="edAuto" ${R.auto ? 'disabled' : ''}>Auto (0 → median)</button></div></div>` : '';
+      const lg = $('#edLegend'); if (lg) lg.innerHTML = TYPES.map((t, i) => S.ds.counts[i] ? `<span><i class="sw" style="background:${TYPE_COLORS[i]}"></i> ${i} ${t.name}</span>` : '').join('');
+      edBindCbar();
+    }
+    function edBindCbar() {
+      const a = $('#edMin'), b = $('#edMax'); if (!a) return;
+      const upd = () => {
+        let lo = +a.value, hi = +b.value; if (hi <= lo) { if (document.activeElement === a) { hi = lo + (+a.step); b.value = hi; } else { lo = Math.max(0, hi - (+a.step)); a.value = lo; } }
+        S.edVlim = [lo, hi]; $('#edMinO').textContent = lo.toFixed(3); $('#edMaxO').textContent = hi.toFixed(3);
+        $('#edLo').textContent = lo.toFixed(3) + ' similar'; $('#edHi').textContent = (hi < edRange().dataMax ? '≥ ' : '') + hi.toFixed(3) + ' far'; $('#edAuto').disabled = false; edDrawHeat();
+      };
+      a.addEventListener('input', upd); b.addEventListener('input', upd);
+      $('#edAuto').addEventListener('click', () => { S.edVlim = null; edControls(); edDrawHeat(); });
+    }
+    function edDraw() { edDrawHeat(); edDrawTsne(); }
+    function edDrawHeat() {
+      const cv = $('#edHeat'); if (!cv || !$('#edBox').open) return; const { ctx, w, h } = fitCanvas(cv), col = colors(), ed = S.ed;
+      if (!ed || !ed.E) { ctx.fillStyle = col.muted; ctx.font = '14px ' + FS(); ctx.textAlign = 'center'; ctx.fillText(S.data.m < 2 ? 'Add at least two clones' : 'Computing…', w / 2, h / 2); ctx.textAlign = 'left'; return; }
+      const m = ed.m, O = edOrder(), inv = new Int32Array(m); O.forEach((v, r) => inv[v] = r);
+      const Z = S.edZoom || { r0: 0, r1: m, c0: 0, c1: m }, dw = S.edHc && !S.edZoom ? Math.round(w * 0.09) : 0, band = 12, ox = dw + band, oy = dw + band;
+      const csx = (w - ox) / (Z.c1 - Z.c0), csy = (h - oy) / (Z.r1 - Z.r0); S.edGeom = { ox, oy, csx, csy, Z, O }; const R = edRange();
+      for (let c = Z.c0; c < Z.c1; c++) { ctx.fillStyle = TYPE_COLORS[S.data.ctype[O[c]]]; ctx.fillRect(ox + (c - Z.c0) * csx, dw, Math.ceil(csx), band - 3); }
+      for (let r = Z.r0; r < Z.r1; r++) { ctx.fillStyle = TYPE_COLORS[S.data.ctype[O[r]]]; ctx.fillRect(dw, oy + (r - Z.r0) * csy, band - 3, Math.ceil(csy)); }
+      const nums = Math.min(csx, csy) >= 30; ctx.font = `${Math.min(12, Math.floor(Math.min(csx, csy) * 0.32))}px ${FM()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (let r = Z.r0; r < Z.r1; r++)for (let c = Z.c0; c < Z.c1; c++) {
+        const v = ed.E[O[r] * m + O[c]], cc = coolwarm(R.t(v)), x = ox + (c - Z.c0) * csx, y = oy + (r - Z.r0) * csy;
+        ctx.fillStyle = rgbCss(cc); ctx.fillRect(x, y, Math.ceil(csx), Math.ceil(csy)); if (nums) { ctx.fillStyle = inkOn(cc); ctx.fillText(v.toFixed(2).replace(/^0/, ''), x + csx / 2, y + csy / 2); }
+      }
+      ctx.textAlign = 'left';
+      if (dw) drawDendro(ctx, dw, ox, oy, csx, csy, inv, col, S.edHc);
+      const P = S.edPair; if (P) {
+        const r = inv[P[0]], c = inv[P[1]];
+        if (r >= Z.r0 && r < Z.r1 && c >= Z.c0 && c < Z.c1) { const x = ox + (c - Z.c0) * csx, y = oy + (r - Z.r0) * csy; ctx.lineWidth = 3; ctx.strokeStyle = col.panel; ctx.strokeRect(x - 2, y - 2, csx + 4, csy + 4); ctx.lineWidth = 2; ctx.strokeStyle = col.fg; ctx.strokeRect(x - 2, y - 2, csx + 4, csy + 4); }
+      }
+      const d = S.edDrag; if (d && d.moved) { const x = Math.min(d.x0, d.x1), y = Math.min(d.y0, d.y1); ctx.fillStyle = col.accent; ctx.globalAlpha = 0.15; ctx.fillRect(x, y, Math.abs(d.x1 - d.x0), Math.abs(d.y1 - d.y0)); ctx.globalAlpha = 1; ctx.strokeStyle = col.accent; ctx.lineWidth = 1.5; ctx.strokeRect(x, y, Math.abs(d.x1 - d.x0), Math.abs(d.y1 - d.y0)); }
+    }
+    function edDrawTsne() {
+      const cv = $('#edTsne'); if (!cv || !$('#edBox').open) return; const { ctx, w, h } = fitCanvas(cv), col = colors(), ed = S.ed, D = S.data; S.edHits = null;
+      const tm = $('#edTsMeta'); if (tm) tm.textContent = ed && ed.perp ? `perplexity ${ed.perp}` : '';
+      if (!ed || !ed.Y) return stageMessage(ctx, w, h, col, D.m < 4 ? 'Add at least 4 clones' : 'Waiting for E-distances…');
+      const n = ed.m, xs = [], ys = []; for (let i = 0; i < n; i++) { xs.push(ed.Y[2 * i]); ys.push(ed.Y[2 * i + 1]); }
+      const F = scatterFrame(xs, ys, w, h, w * 0.07), r = Math.max(3.5, Math.min(w / 60, w / 105 * Math.sqrt(200 / n))), hl = S.edSel && S.edSel.size ? S.edSel : null, P = S.edPair && hl && hl.has(S.edPair[0]) && hl.has(S.edPair[1]) && hl.size <= 2 ? S.edPair : null; S.edHits = [];
+      for (let i = 0; i < n; i++) { const px = F.X(xs[i]), py = F.Y(ys[i]); S.edHits.push([px, py, i]); ctx.globalAlpha = !hl || hl.has(i) ? 1 : 0.2; dot(ctx, px, py, r, TYPE_COLORS[D.ctype[i]], n < 40 ? col.stroke : null, 1); }
+      ctx.globalAlpha = 1;
+      ctx.font = `700 ${Math.round(Math.max(15, w / 26))}px ${FS()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (let t = 0; t < 10; t++) {
+        const ix = [], iy = []; for (let i = 0; i < n; i++)if (D.ctype[i] === t) { ix.push(xs[i]); iy.push(ys[i]); } if (ix.length < 2) continue;
+        ix.sort((a, b) => a - b); iy.sort((a, b) => a - b); const mx = F.X(ix[ix.length >> 1]), my = F.Y(iy[iy.length >> 1]); ctx.globalAlpha = hl ? 0.3 : 1;
+        ctx.lineWidth = 4; ctx.strokeStyle = col.panel; ctx.strokeText(String(t), mx, my); ctx.fillStyle = col.fg; ctx.fillText(String(t), mx, my);
+      }
+      ctx.globalAlpha = 1; ctx.textAlign = 'left';
+      if (hl) for (const i of hl) dot(ctx, F.X(xs[i]), F.Y(ys[i]), r + (hl.size <= 2 ? 4 : 1.5), 'transparent', col.fg, hl.size <= 2 ? 2 : 1.5);
+      if (P) { if (P[0] !== P[1]) { ctx.strokeStyle = col.fg; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(F.X(xs[P[0]]), F.Y(ys[P[0]])); ctx.lineTo(F.X(xs[P[1]]), F.Y(ys[P[1]])); ctx.stroke(); ctx.setLineDash([]); } }
+      if (S.edHover != null && S.edHover < n) dot(ctx, F.X(xs[S.edHover]), F.Y(ys[S.edHover]), r + 3, 'transparent', col.accent, 2);
+      if (S.edLasso && S.edLasso.length > 1) {
+        ctx.beginPath(); S.edLasso.forEach(([x, y], q) => q ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath();
+        ctx.fillStyle = col.accent; ctx.globalAlpha = 0.1; ctx.fill(); ctx.globalAlpha = 1; ctx.setLineDash([5, 4]); ctx.strokeStyle = col.accent; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
+      }
+      drawAxes(ctx, w, h, col, 'tSNE1', 'tSNE2');
+      edDrawInset();
+      const st = $('#edStatus'); if (st && ed.done) st.innerHTML = `${n} clones · t-SNE on E-distances · perplexity ${ed.perp}`;
+    }
+    function edDrawInset() {
+      const cv = $('#edInset'), info = $('#edInsetInfo'), D = S.data; if (!cv || !info || !D.m) return;
+      const sel = S.edSel && S.edSel.size ? [...S.edSel].sort((a, b) => a - b) : (S.edHover != null ? [S.edHover] : []), cells = [];
+      for (const c of sel) for (let i = D.start[c]; i < D.start[c + 1]; i++)cells.push(i);
+      const r = cells.length > 3000 ? 1.8 : cells.length > 800 ? 2.4 : 3.2;
+      drawDisc(cv, cells, i => TYPE_COLORS[D.ctype[D.lab[i]]], { outline: true, r, stride: 2, bgSize: 1.2 });
+      if (S.edSel && S.edSel.size) {
+        const byType = new Array(10).fill(0); for (const c of sel) byType[D.ctype[c]]++;
+        info.innerHTML = `<div class="eyebrow">Selection</div><h3 style="font-size:17px">${sel.length} clone${sel.length > 1 ? 's' : ''} · ${fmtN(cells.length)} cells</h3>
+      <div class="legend">${byType.map((v, t) => v ? `<span><i class="sw" style="background:${TYPE_COLORS[t]}"></i> ${TYPES[t].name} ×${v}</span>` : '').join('')}</div>
+      <div><button class="btn sm" id="edClearSel">Clear selection</button></div>`;
+        $('#edClearSel').addEventListener('click', () => { S.edSel = new Set(); S.edPair = null; edDraw(); });
+      }
+      else if (sel.length) { const c = sel[0]; info.innerHTML = `<div class="eyebrow">Clone ${c + 1} of ${D.m}</div><h3 style="font-size:17px">${D.sizes[c]} cells</h3><p class="small muted" style="margin:0">Hidden shape: <b style="color:var(--fg)">${TYPES[D.ctype[c]].name}</b>.</p>`; }
+      else info.innerHTML = `<p class="small muted" style="margin:0">Drag on the t-SNE to lasso clones; their cells appear here in expression space. Shift adds to the selection, a click picks one clone. Clicking a heatmap cell selects that pair.</p>`;
+    }
+    function edPairInfo(a, b) {
+      const D = S.data, ed = S.ed;
+      return `<span class="pill" style="background:${TYPE_COLORS[D.ctype[a]]};color:${inkOn(hexRgb(TYPE_COLORS[D.ctype[a]]))}">Clone ${a + 1}</span> ${TYPES[D.ctype[a]].name}, ${D.sizes[a]} cells · <span class="pill" style="background:${TYPE_COLORS[D.ctype[b]]};color:${inkOn(hexRgb(TYPE_COLORS[D.ctype[b]]))}">Clone ${b + 1}</span> ${TYPES[D.ctype[b]].name}, ${D.sizes[b]} cells · E = <b>${ed.E[a * ed.m + b].toFixed(3)}</b>`;
+    }
+    function edCell(x, y) {
+      const G = S.edGeom; if (!G) return null; const Z = G.Z;
+      const r = Math.max(Z.r0, Math.min(Z.r1 - 1, Z.r0 + Math.floor((y - G.oy) / G.csy))), c = Math.max(Z.c0, Math.min(Z.c1 - 1, Z.c0 + Math.floor((x - G.ox) / G.csx)));
+      return { r, c, i: G.O[r], j: G.O[c], inside: x >= G.ox && y >= G.oy };
+    }
+    (function bindEd() {
+      const box = $('#edBox'); box.addEventListener('toggle', () => { if (box.open) { if (!S.ed) edCompute(); else { edControls(); edDraw(); } } });
+      $('#edCluster').addEventListener('click', () => { if (!S.ed || !S.ed.E) return; const mth = 'ward'; S.edHc = { method: mth, ...hclustD(S.ed.E, S.ed.m, mth) }; S.edZoom = null; S.edZoomStack = []; edControls(); edDrawHeat(); });
+      $('#edUncluster').addEventListener('click', () => { S.edHc = null; S.edZoom = null; S.edZoomStack = []; edControls(); edDrawHeat(); });
+      $('#edZoomOut').addEventListener('click', () => { S.edZoom = S.edZoomStack.pop() ?? null; edControls(); edDrawHeat(); });
+      const hc = $('#edHeat'), pos = e => { const r = hc.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+      hc.addEventListener('pointerdown', e => { if (!S.ed || !S.ed.E) return; const [x, y] = pos(e); S.edDrag = { x0: x, y0: y, x1: x, y1: y, moved: false }; hc.setPointerCapture(e.pointerId); });
+      hc.addEventListener('pointermove', e => {
+        const [x, y] = pos(e), d = S.edDrag;
+        if (d) { d.x1 = x; d.y1 = y; if (Math.hypot(x - d.x0, y - d.y0) > 6) d.moved = true; if (d.moved) { edDrawHeat(); return; } }
+        if (!S.ed || !S.ed.E) return; const c = edCell(x, y), info = $('#edInfo'); if (c && c.inside && info) info.innerHTML = edPairInfo(c.i, c.j);
+      });
+      hc.addEventListener('pointerup', () => {
+        const d = S.edDrag; S.edDrag = null; if (!d) return;
+        if (d.moved) {
+          const a = edCell(Math.min(d.x0, d.x1), Math.min(d.y0, d.y1)), b = edCell(Math.max(d.x0, d.x1), Math.max(d.y0, d.y1)), m = S.ed.m;
+          S.edZoomStack.push(S.edZoom); S.edZoom = { r0: a.r, r1: Math.min(m, Math.max(b.r + 1, a.r + 2)), c0: a.c, c1: Math.min(m, Math.max(b.c + 1, a.c + 2)) }; edControls(); edDrawHeat(); return;
+        }
+        const c = edCell(d.x0, d.y0); if (!c || !c.inside) { edDrawHeat(); return; } S.edPair = [c.i, c.j]; S.edSel = new Set([c.i, c.j]); $('#edInfo').innerHTML = edPairInfo(c.i, c.j); edDraw();
+      });
+      hc.addEventListener('pointercancel', () => { S.edDrag = null; edDrawHeat(); });
+      hc.addEventListener('dblclick', () => { if (S.edZoom) { S.edZoom = S.edZoomStack.pop() ?? null; edControls(); edDrawHeat(); } });
+      const ts = $('#edTsne'), tpos = e => { const r = ts.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+      const near = (x, y) => { let best = -1, bd = 225; if (S.edHits) for (const h of S.edHits) { const q = (h[0] - x) ** 2 + (h[1] - y) ** 2; if (q < bd) { bd = q; best = h[2]; } } return best; };
+      const inPolyL = (x, y, P) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, yi] = P[i], [xj, yj] = P[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+      ts.style.touchAction = 'none';
+      ts.addEventListener('pointerdown', e => { if (!S.ed || !S.ed.Y) return; S.edLasso = [tpos(e)]; S.edLassoShift = e.shiftKey; ts.setPointerCapture(e.pointerId); e.preventDefault(); });
+      ts.addEventListener('pointermove', e => {
+        const [x, y] = tpos(e);
+        if (S.edLasso) { const L = S.edLasso, [lx, ly] = L[L.length - 1]; if (Math.hypot(x - lx, y - ly) > 3) { L.push([x, y]); edDrawTsne(); } return; }
+        const b = near(x, y); ts.style.cursor = 'crosshair';
+        if ((b >= 0 ? b : null) !== S.edHover) {
+          S.edHover = b >= 0 ? b : null; edDrawTsne();
+          const info = $('#edInfo'); if (b >= 0 && info) { const D = S.data; info.innerHTML = `<span class="pill" style="background:${TYPE_COLORS[D.ctype[b]]};color:${inkOn(hexRgb(TYPE_COLORS[D.ctype[b]]))}">Clone ${b + 1}</span> ${TYPES[D.ctype[b]].name}, ${D.sizes[b]} cells`; }
+        }
+      });
+      ts.addEventListener('pointerleave', () => { if (S.edHover != null && !S.edLasso) { S.edHover = null; edDrawTsne(); } });
+      ts.addEventListener('pointerup', e => {
+        const L = S.edLasso; if (!L) return; S.edLasso = null; const add = S.edLassoShift || e.shiftKey; S.edPair = null;
+        let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; for (const [x, y] of L) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+        if (L.length < 3 || (x1 - x0 < 6 && y1 - y0 < 6)) {
+          const b = near(...L[0]);
+          if (b < 0) { if (!add) S.edSel = new Set(); } else if (add) { S.edSel.has(b) ? S.edSel.delete(b) : S.edSel.add(b); } else S.edSel = new Set([b]);
+        }
+        else { const hit = (S.edHits || []).filter(h => inPolyL(h[0], h[1], L)).map(h => h[2]); S.edSel = add ? new Set([...S.edSel, ...hit]) : new Set(hit); }
+        if (S.edSel.size === 2) { const [a, b] = [...S.edSel]; S.edPair = [a, b]; const info = $('#edInfo'); if (info) info.innerHTML = edPairInfo(a, b); }
+        edDraw();
+      });
+      ts.addEventListener('pointercancel', () => { S.edLasso = null; edDrawTsne(); });
+    })();
+
+    /* ---------------- docs embedding: theme in, height out ----------------
+       Protocol (postMessage, so it also works for local file:// builds):
+         page   -> parent  {type:'c2v-walkthrough:ready'}             once the script has run
+         page   -> parent  {type:'c2v-walkthrough:height', height:N}  whenever the content height changes
+         parent -> page    {type:'c2v-walkthrough:theme', theme:'light'|'dark', vars:{'--fg':…, …}}
+       Only the variables listed in THEME_VARS are accepted. */
+    const EMBEDDED = window.parent !== window;
+    const THEME_VARS = ['--page', '--panel', '--fg', '--muted', '--line', '--empty', '--accent', '--f-sans', '--f-mono'];
+    function applyHostTheme(msg) {
+      const root = document.documentElement;
+      root.dataset.theme = msg.theme === 'dark' ? 'dark' : 'light';
+      for (const k of THEME_VARS) root.style.removeProperty(k);
+      const v = msg.vars || {};
+      for (const k of THEME_VARS) if (typeof v[k] === 'string' && v[k] && v[k].length < 300 && !/[;{}<>]/.test(v[k])) root.style.setProperty(k, v[k]);
+    }
+    let lastHeight = 0;
+    function postHeight() {
+      if (!EMBEDDED) return; const h = Math.ceil(document.body.getBoundingClientRect().height);
+      if (h && Math.abs(h - lastHeight) > 1) { lastHeight = h; window.parent.postMessage({ type: 'c2v-walkthrough:height', height: h }, '*'); }
+    }
+    if (EMBEDDED) {
+      window.addEventListener('message', e => { if (e.source !== window.parent || !e.data || e.data.type !== 'c2v-walkthrough:theme') return; applyHostTheme(e.data); });
+      new ResizeObserver(postHeight).observe(document.body);
+    }
+
+    /* ---------------- theme + resize ---------------- */
+    function redrawAll() { edDraw(); drawStage(); drawLoss(); drawHeat(); drawShapeIcons(); drawHist(); if (isEmbStep(STEPS[S.step].key)) { drawThumbs(); drawInset(); } drawSim(); }
+    let redrawQueued = false; const queueRedraw = () => { if (redrawQueued) return; redrawQueued = true; requestAnimationFrame(() => { redrawQueued = false; redrawAll(); }); };
+    new ResizeObserver(queueRedraw).observe($('.wrap'));
+    try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', queueRedraw); } catch (e) { }
+    new MutationObserver(queueRedraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });
+
+    buildData(); renderDataset(); render();
+    if (EMBEDDED) { window.parent.postMessage({ type: 'c2v-walkthrough:ready' }, '*'); postHeight(); }
+  </script>
+</body>
+
+</html>
