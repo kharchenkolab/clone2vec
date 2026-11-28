@@ -500,7 +500,8 @@ def mask_heterogeneity(
 
     Runs `clonal_nn` with `mask_obs=mask` on a copy of `clones` (reusing `k`, `use_rep` and
     `split_by` from `clones.uns['clonal_nn']`), then `clone2vec` (or `clone2vec_Poi` if only
-    it was fitted on `clones`) with `mask_key="masked_nn"` and `init="random"`. The masked
+    it was fitted on `clones`) with `mask_key="masked_nn"`, `init="random"` and the
+    `orthogonalize` setting of the original `clone2vec` fit. The masked
     adjacency graph and masked neighbour counts are used only internally and are not stored.
 
     Parameters
@@ -580,6 +581,7 @@ def mask_heterogeneity(
             clone2vec(
                 clones_masked, z_dim=clones.obsm[c2v_key].shape[1], obsp_key=obsp_name,
                 mask_key="masked_nn", init="random",
+                orthogonalize=clones.uns[c2v_key].get("init", {}).get("orthogonalize", False),
             )
     finally:
         root_logger.removeFilter(as_subtask)

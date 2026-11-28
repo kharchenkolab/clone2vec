@@ -219,3 +219,104 @@ def test_project_clone2vec_requires_reference(projection_setup):
     clones_query, clones_ref = projection_setup
     with pytest.raises(KeyError):
         c2v.tl.project_clone2vec(clones_query.copy(), clones_ref, uns_key_ref="absent")
+
+# ===== orthogonalize =====
+
+def _probabilities(U, W, b):
+    logits = U.astype(np.float64) @ W.T.astype(np.float64) + b
+    logits -= logits.max(axis=1, keepdims=True)
+    P = np.exp(logits)
+    return P / P.sum(axis=1, keepdims=True)
+
+def _fit_pair(clones, **kwargs):
+    plain, orth = clones.copy(), clones.copy()
+    args = dict(z_dim=4, max_iter=5, progress_bar=False, device="cpu", **kwargs)
+    c2v.tl.clone2vec(plain, **args)
+    c2v.tl.clone2vec(orth, orthogonalize=True, **args)
+    return plain, orth
+
+def test_clone2vec_default_unchanged(clones_sparse):
+    cl = clones_sparse.copy()
+    c2v.tl.clone2vec(cl, z_dim=4, max_iter=5, progress_bar=False, device="cpu")
+    model = c2v.embeddings.SkipGram(z_dim=4, device="cpu")
+    model.fit(cl.obsp["gex_adjacency"], random_state=4, max_iter=5, init="svd", progress_bar=False, device="cpu")
+    params = cl.uns["clone2vec"]
+    assert np.array_equal(cl.obsm["clone2vec"], model.U)
+    assert np.array_equal(params["output"]["weight"], model.output.weight.detach().numpy())
+    assert np.array_equal(params["output"]["bias"], model.output.bias.detach().numpy())
+    assert params["init"]["orthogonalize"] is False
+    assert "singular_values" not in params
+
+def test_orthogonalize_preserves_probabilities(clones_sparse):
+    plain, orth = _fit_pair(clones_sparse)
+    p, o = plain.uns["clone2vec"]["output"], orth.uns["clone2vec"]["output"]
+    assert np.allclose(
+        _probabilities(plain.obsm["clone2vec"], p["weight"], p["bias"]),
+        _probabilities(orth.obsm["clone2vec"], o["weight"], o["bias"]),
+        atol=1e-6,
+    )
+    assert orth.uns["clone2vec"]["init"]["orthogonalize"] is True
+
+def test_orthogonalize_centered_orthogonal(clones_sparse):
+    _, orth = _fit_pair(clones_sparse)
+    U = orth.obsm["clone2vec"].astype(np.float64)
+    W = orth.uns["clone2vec"]["output"]["weight"].astype(np.float64)
+    S = orth.uns["clone2vec"]["singular_values"]
+    assert np.allclose(U.mean(axis=0), 0, atol=1e-5)
+    assert np.allclose(U.T @ U, np.diag(S ** 2), rtol=1e-4, atol=1e-4 * S[0] ** 2)
+    assert np.allclose(W.T @ W, np.eye(4), atol=1e-5)
+    assert np.all(np.diff(S) <= 0)
+
+def test_orthogonalize_equivalent_inputs():
+    rng = np.random.RandomState(0)
+    U, V, b = rng.randn(50, 4), rng.randn(60, 4), rng.randn(60)
+    A, s = rng.randn(4, 4), rng.randn(4)
+    A_inv_T = np.linalg.inv(A).T
+    U1, V1, b1, S1 = c2v.embeddings._orthogonalize(U, V, b)
+    U2, V2, b2, S2 = c2v.embeddings._orthogonalize(U @ A + s, V @ A_inv_T, b - V @ A_inv_T @ s)
+    for x, y in [(U1, U2), (V1, V2), (b1, b2), (S1, S2)]:
+        assert np.allclose(x, y, atol=1e-8)
+
+def test_orthogonalize_rank_warning(monkeypatch):
+    messages = []
+    monkeypatch.setattr(c2v.embeddings.logg, "warning", messages.append)
+    rng = np.random.RandomState(0)
+    U = rng.randn(50, 4)
+    U[:, 3] = U[:, 0] + U[:, 1]
+    c2v.embeddings._orthogonalize(U, rng.randn(60, 4), rng.randn(60))
+    assert any("rank 3" in m for m in messages)
+
+def test_orthogonalize_mask_key(clones_sparse):
+    cl = clones_sparse.copy()
+    _add_mask(cl)
+    plain, orth = _fit_pair(cl, mask_key="mask")
+    p, o = plain.uns["clone2vec"]["output"], orth.uns["clone2vec"]["output"]
+    assert o["weight"].shape == (cl.n_obs + 2, 4)
+    assert np.allclose(o["weight"].T @ o["weight"], np.eye(4), atol=1e-5)
+    assert np.allclose(
+        _probabilities(plain.obsm["clone2vec"], p["weight"], p["bias"]),
+        _probabilities(orth.obsm["clone2vec"], o["weight"], o["bias"]),
+        atol=1e-6,
+    )
+
+def test_orthogonalize_propagates(adata, clones_basic, monkeypatch):
+    cl = clones_basic.copy()
+    c2v.tl.clone2vec(cl, z_dim=3, max_iter=3, progress_bar=False, device="cpu", orthogonalize=True)
+
+    fit = c2v.tools.clone2vec
+    monkeypatch.setattr(c2v.tools, "clone2vec", lambda *args, **kwargs: fit(*args, max_iter=3, device="cpu", **kwargs))
+    c2v.tl.mask_heterogeneity(adata, cl, mask=(adata.obs["cell_type"] == "Undiff").values)
+    assert cl.uns["mask"]["clone2vec"]["init"]["orthogonalize"] is True
+    assert "singular_values" in cl.uns["mask"]["clone2vec"]
+
+    c2v.tl.permute_embeddings(adata, cl, n_permutations=1, progress_bar=False,
+                              clone2vec_kwargs={"max_iter": 3, "device": "cpu"})
+    perm = cl.obsm["clonal_permutations"][..., 0]
+    assert cl.uns["clonal_permutations"]["init"]["orthogonalize"] is True
+    assert np.allclose(perm.mean(axis=0), 0, atol=1e-5)
+
+    cq = cl.copy()
+    nn = cq.obsp["gex_adjacency"]
+    cq.obsm["ref_gex_adjacency"] = nn.toarray() if sp.issparse(nn) else nn
+    c2v.tl.project_clone2vec(cq, cl, obsm_key="proj", uns_key_query="proj", max_iter=3, progress_bar=False, device="cpu")
+    assert cq.uns["proj"]["init"]["orthogonalize"] is True

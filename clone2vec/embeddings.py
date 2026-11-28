@@ -532,6 +532,43 @@ class SkipGram(nn.Module):
         self.project_loglik_history_ = np.array(proj_loglik_history)
         return self if return_model else self.U
 
+def _orthogonalize(
+    U: np.ndarray,
+    V: np.ndarray,
+    b: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    U = np.asarray(U, dtype=np.float64)
+    V = np.asarray(V, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+    u_mean = U.mean(axis=0)
+    U_c = U - u_mean
+    V_c = V - V.mean(axis=0)
+
+    # U_c V_c^T = Q_u (R_u R_v^T) Q_v^T, so the SVD of the z x z core gives the SVD of the C x K product
+    Q_u, R_u = np.linalg.qr(U_c)
+    Q_v, R_v = np.linalg.qr(V_c)
+    W, S, Zt = np.linalg.svd(R_u @ R_v.T, full_matrices=False)
+    U_new = Q_u @ (W * S)
+    V_new = Q_v @ Zt.T
+
+    signs = np.sign(U_new[np.argmax(np.abs(U_new), axis=0), np.arange(U_new.shape[1])])
+    signs[signs == 0] = 1
+    U_new *= signs
+    V_new *= signs
+
+    b_new = b + V @ u_mean
+    b_new -= b_new.mean()
+
+    # tolerance reflects the float32 precision of the trained weights
+    tol = S[0] * max(U.shape[0], V.shape[0]) * np.finfo(np.float32).eps
+    rank = int(np.sum(S > tol))
+    if rank < U.shape[1]:
+        logg.warning(
+            f"orthogonalized embedding has rank {rank} < z_dim={U.shape[1]}, "
+            "the trailing dimensions are degenerate"
+        )
+    return U_new, V_new, b_new, S
+
 def clone2vec(
     clones: sc.AnnData,
     z_dim: int = 10,
@@ -549,6 +586,7 @@ def clone2vec(
     batch_size: int = 128,
     early_stopping_patience: int = 5,
     early_stopping_min_delta: float = 1e-4,
+    orthogonalize: bool = False,
 ) -> None:
     """
     Learn a clonal embedding using Skip-Gram and store the embeddings.
@@ -592,11 +630,22 @@ def clone2vec(
         Number of iterations with no improvement to wait before stopping, by default 5.
     early_stopping_min_delta
         Minimum change in loss to qualify as an improvement, by default 1e-4.
+    orthogonalize
+        Whether to replace the trained factors with the canonical member of their
+        equivalence class, by default False. The Skip-Gram likelihood depends on the input
+        embedding U, the output weights V and the output bias b only through U Vᵀ + 1 bᵀ,
+        so any (U A, V A⁻ᵀ) with invertible A, or a shift of the rows of U absorbed into b,
+        gives the same fitted probabilities. If True, U and V are centered and the SVD of
+        the centered product U_c V_cᵀ = P S Qᵀ is taken: the stored embedding is P S
+        (centered, mutually orthogonal columns ordered by decreasing variance, as PCA
+        scores), the output weights are Q (orthonormal columns), and the bias is adjusted so
+        that the fitted probabilities are unchanged.
 
     Returns
     -------
     Adds the embedding to `clones.obsm[obsm_key]` and the training details to
-    `clones.uns[uns_key]`.
+    `clones.uns[uns_key]` (with the singular values S under "singular_values" if
+    `orthogonalize=True`).
     """
     start = logg.info("fitting clone2vec embeddings")
     if obsp_key not in clones.obsp:
@@ -669,18 +718,27 @@ def clone2vec(
         early_stopping_min_delta=early_stopping_min_delta,
     )
 
-    clones.obsm[obsm_key] = model.U
+    U = model.U
+    weight = model.output.weight.detach().cpu().numpy()
+    bias = model.output.bias.detach().cpu().numpy()
+    if orthogonalize:
+        U, weight, bias, singular_values = _orthogonalize(U, weight, bias)
+        U, weight, bias = U.astype(np.float32), weight.astype(np.float32), bias.astype(np.float32)
+
+    clones.obsm[obsm_key] = U
     clones.uns[uns_key] = {
-        "init": {"z_dim": model.z_dim},
+        "init": {"z_dim": model.z_dim, "orthogonalize": orthogonalize},
         "output": {
-            "weight": model.output.weight.detach().cpu().numpy(),
-            "bias": model.output.bias.detach().cpu().numpy(),
+            "weight": weight,
+            "bias": bias,
         },
         "var_names": np.array(var_names).copy(),
         "loss_history": -model.loglik_history_,
         "training_time": time.time() - start_time,
         "type": "fit",
     }
+    if orthogonalize:
+        clones.uns[uns_key]["singular_values"] = singular_values
 
     lines = [
         "added",
@@ -930,7 +988,9 @@ def project_clone2vec(
     """
     Fitting of new clones to the reference clone2vec embeddings using kNN between query and reference datasets.
     The function is using output embedding from the reference clone2vec model and optimizes only input embedding matrix,
-    therefore has much faster convergence than training the whole model.
+    therefore has much faster convergence than training the whole model. If the reference was fitted with
+    `orthogonalize=True`, the query clones are embedded in the same orthogonalized coordinates (the query
+    embedding itself is not re-orthogonalized), and the setting is recorded in `clones_query.uns[uns_key_query]['init']`.
 
     Parameters
     ----------
@@ -982,7 +1042,7 @@ def project_clone2vec(
     except KeyError:
         raise KeyError(f"clone2vec embeddings not found in clones_ref.uns['{uns_key_ref}']. Did you run `clone2vec` before?")
     
-    model = SkipGram(**params["init"], device=device)
+    model = SkipGram(z_dim=params["init"]["z_dim"], device=device)
     base_out = len(clones_ref)
     extra_cols = 0
     if mask_key is not None:
@@ -1042,7 +1102,7 @@ def project_clone2vec(
     
     var_names = list(clones_ref.obs_names) + ([f"mask{i+1}" for i in range(M_vals.shape[1])] if mask_key is not None else [])
     clones_query.uns[uns_key_query] = {
-        "init": {"z_dim": model.z_dim},
+        "init": {"z_dim": model.z_dim, "orthogonalize": params["init"].get("orthogonalize", False)},
         "loss_history": -model.project_loglik_history_,
         "training_time": time.time() - start_time,
         "type": "project",
