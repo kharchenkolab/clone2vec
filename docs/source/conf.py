@@ -61,6 +61,9 @@ intersphinx_mapping = {
 }
 intersphinx_disabled_domains = ["std"]
 
+# single backticks in docstrings render as inline code (the RST default is italic)
+default_role = "literal"
+
 exclude_patterns = ["_build", "**.ipynb_checkpoints"]
 templates_path = ["_templates"]
 html_static_path = ["_static"]

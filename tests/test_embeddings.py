@@ -235,11 +235,18 @@ def _fit_pair(clones, **kwargs):
     c2v.tl.clone2vec(orth, orthogonalize=True, **args)
     return plain, orth
 
-def test_clone2vec_default_unchanged(clones_sparse):
+def test_clone2vec_default_unchanged(clones_sparse, monkeypatch):
+    # compare with the model trained inside clone2vec, a second fit may differ (svds init is not seeded in recent scipy)
+    models = []
+    fit = c2v.embeddings.SkipGram.fit
+    def capture(self, *args, **kwargs):
+        models.append(self)
+        return fit(self, *args, **kwargs)
+    monkeypatch.setattr(c2v.embeddings.SkipGram, "fit", capture)
+
     cl = clones_sparse.copy()
     c2v.tl.clone2vec(cl, z_dim=4, max_iter=5, progress_bar=False, device="cpu")
-    model = c2v.embeddings.SkipGram(z_dim=4, device="cpu")
-    model.fit(cl.obsp["gex_adjacency"], random_state=4, max_iter=5, init="svd", progress_bar=False, device="cpu")
+    model = models[0]
     params = cl.uns["clone2vec"]
     assert np.array_equal(cl.obsm["clone2vec"], model.U)
     assert np.array_equal(params["output"]["weight"], model.output.weight.detach().numpy())
